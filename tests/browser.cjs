@@ -1,10 +1,10 @@
-const { chromium } = require('playwright');
+const {launchBrowser,testUrl}=require('./browser-helpers.cjs');
 const assert = require('node:assert/strict');
 (async()=>{
- const browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH||'/usr/bin/chromium',headless:true,args:['--no-sandbox']});
+ const browser=await launchBrowser();
  const context=await browser.newContext({viewport:{width:390,height:844},deviceScaleFactor:3,isMobile:true,hasTouch:true});
  const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('response',r=>{if(r.status()>=400)errors.push(`${r.status()} ${r.url()}`)});
- const url=process.env.TEST_URL||'http://127.0.0.1:8000/aquaos/';
+ const url=testUrl;
  await page.goto(url);await page.waitForSelector('.preset');assert.equal(await page.locator('.preset').count(),9);
  for(const width of [320,375,390,430,768,1280]){await page.setViewportSize({width,height:844});assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`overflow at ${width}`);}
  for(const [width,height] of [[320,480],[320,568],[375,548],[390,664],[390,844],[430,760],[667,375],[844,390]]){

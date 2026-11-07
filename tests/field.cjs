@@ -1,9 +1,9 @@
-const {chromium}=require('playwright');
+const {launchBrowser,testUrl}=require('./browser-helpers.cjs');
 const assert=require('node:assert/strict');
 (async()=>{
- const browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH||'/usr/bin/chromium',headless:true,args:['--no-sandbox']});
+ const browser=await launchBrowser();
  const page=await browser.newPage({viewport:{width:390,height:664},deviceScaleFactor:2});const errors=[];page.on('pageerror',e=>errors.push(e.message));
- const url=process.env.TEST_URL||'http://127.0.0.1:8000/aquaos/';await page.goto(url);
+ const url=testUrl;await page.goto(url);
  const result=await page.evaluate(async()=>{
   const {LightingEngine,LightingPass,DEFAULT_ASSEMBLIES}=await import('./js/effects.js');
   const {LightField,FIELD_CHANNELS}=await import('./js/light-field.js');

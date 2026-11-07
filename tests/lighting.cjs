@@ -1,11 +1,11 @@
-const {chromium}=require('playwright');
+const {launchBrowser,testUrl}=require('./browser-helpers.cjs');
 const assert=require('node:assert/strict');
 (async()=>{
- const browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH||'/usr/bin/chromium',headless:true,args:['--no-sandbox']});
+ const browser=await launchBrowser();
  const page=await browser.newPage({viewport:{width:390,height:664},deviceScaleFactor:2});
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.emulateMedia({reducedMotion:'reduce'});
- await page.goto(process.env.TEST_URL||'http://127.0.0.1:8000/aquaos/');
+ await page.goto(testUrl);
  const result=await page.evaluate(async()=>{
   const {LightingEngine}=await import('./js/effects.js');
   const {getPreset}=await import('./js/presets.js');
