@@ -19,6 +19,7 @@ Open http://localhost:8000. Deploy the repository root through GitHub Pages (Set
 - `js/presets.js`: immutable preset definitions and intent-level effect parameters.
 - `js/state.js`: validated selection, subscriptions and versioned local storage; works when storage is blocked.
 - `js/effects.js`: deterministic lighting samples, independent of rendering and hardware.
+- `js/scenery.js`: randomized per-visit aquascape, three plant varieties, rocks, schooling and independent fish, and rising bubbles. Geometry stays stable on resize and preset changes; fish proportions follow the shorter canvas edge.
 - `js/renderer.js`: responsive Canvas scene, 30fps cap, DPR capped at 2, hidden-tab suspension and live reduced-motion support. Reduced motion renders a still scene and disables lightning.
 - `js/hardware.js`: simulation-only adapter contract. No network commands or real device control.
 - `tests/browser.cjs`: browser regression checks (development only).
@@ -41,4 +42,6 @@ Two LED bars are planned, each described as RGB (5 wires), warm white (2 wires) 
 
 A future adapter should implement `connect`, `applyIntent` and `disconnect`, negotiate capabilities, and translate a versioned preset intent only after electrical inspection. Add acknowledgement, connectivity/error state and state reconciliation before showing any physical device as connected. Discovery and local network control are not implemented; HTTPS browser restrictions and ESP32 transport/authentication need a deliberate design.
 
-Future custom preset editing can extend the preset registry with schema-validated local definitions and versioned migrations. Scheduling and weather should produce the same lighting intent through a separate automation service; location requires explicit opt-in. Keep these optional features out of the everyday preset screen. Physical channel aggregation and two-bar mapping belong in the hardware adapter, not the canvas renderer.
+Future custom preset editing can extend the preset registry with schema-validated local definitions and versioned migrations. Scheduling and weather should produce the same lighting intent through a separate automation service; location requires explicit opt-in. Keep these optional features out of the everyday preset screen. The header settings button opens an accessible placeholder dialog; no device or scheduling controls are implemented yet.
+
+Physical channel aggregation and two-bar mapping belong in the hardware adapter, not the canvas renderer.

@@ -16,3 +16,11 @@ for(const p of presets){
 const renderer=new AquariumRenderer(document.querySelector('#scene'),getPreset(store.getState().presetId));
 function update(state,announce=true){const p=getPreset(state.presetId);document.querySelector('#preset-name').textContent=p.name;document.querySelector('#preset-description').textContent=p.description;grid.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.preset===p.id)));renderer.setPreset(p);if(announce)document.querySelector('#announcement').textContent=`${p.name} preview selected. ${p.description}`;}
 store.subscribe(update);update(store.getState(),false);
+
+const settingsDialog=document.querySelector('#settings-dialog');
+document.querySelector('#settings-open').addEventListener('click',()=>settingsDialog.showModal());
+document.querySelector('#settings-close').addEventListener('click',()=>settingsDialog.close());
+settingsDialog.addEventListener('click',event=>{
+  const rect=settingsDialog.getBoundingClientRect();
+  if(event.target===settingsDialog && (event.clientX<rect.left || event.clientX>rect.right || event.clientY<rect.top || event.clientY>rect.bottom))settingsDialog.close();
+});

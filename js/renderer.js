@@ -1,7 +1,9 @@
 import {sampleLight,rgb} from './effects.js';
+import {createScenery,paintRocks,paintPlants,paintFish,paintBubbles} from './scenery.js';
 export class AquariumRenderer {
   constructor(canvas,preset){
     this.canvas=canvas;this.ctx=canvas.getContext('2d');this.preset=preset;this.previous=preset;
+    this.scenery=createScenery();
     this.elapsed=0;this.transition=1;this.last=0;this.frame=0;
     this.motion=matchMedia('(prefers-reduced-motion: reduce)');
     this.tick=this.tick.bind(this);this.restart=this.restart.bind(this);
@@ -17,18 +19,15 @@ export class AquariumRenderer {
   draw(){if(!this.ctx||!this.w||!this.h)return;const c=this.ctx,w=this.w,h=this.h,t=this.motion.matches?0:this.elapsed;
     c.clearRect(0,0,w,h);this.paintWater(this.previous,t,1);this.paintWater(this.preset,t,this.transition);
     const light=sampleLight(this.preset,t,.5,this.motion.matches);
-    // Distant rocks and gently swaying ribbon plants; stable seeded geometry.
-    for(let i=0;i<11;i++){const x=(i*.137%1)*w,y=h*(.81+Math.sin(i*3)*.04);c.fillStyle=i%2?'#1b3935':'#233e38';c.beginPath();c.ellipse(x,y,w*(.045+(i%3)*.012),h*.1,-.3,0,Math.PI*2);c.fill();}
-    for(let layer=0;layer<2;layer++)for(let i=0;i<34;i++){
-      const x=((i*137+layer*47)%997)/997*w,base=h*(.97+layer*.03),height=h*(.13+((i*71)%101)/280)*(layer?1:.8);
-      const sway=Math.sin(t*.45+i)*w*.009,tip=x+Math.sin(i*7)*w*.045+sway;
-      c.fillStyle=layer?`rgba(35,83,57,${.85})`:'#34624b';c.beginPath();c.moveTo(x-3,base);c.bezierCurveTo(x-18,base-height*.4,tip-8,base-height*.8,tip,base-height);c.bezierCurveTo(tip+6,base-height*.6,x+10,base-height*.3,x+3,base);c.fill();
-    }
+    paintPlants(c,w,h,t,this.scenery,true);
+    paintRocks(c,w,h,this.scenery);
+    paintFish(c,w,h,t,this.scenery);
+    paintPlants(c,w,h,t,this.scenery,false);
     const sand=c.createLinearGradient(0,h*.91,0,h);sand.addColorStop(0,'#4c5946');sand.addColorStop(1,'#202e29');c.fillStyle=sand;c.beginPath();c.moveTo(0,h*.95);c.bezierCurveTo(w*.3,h*.87,w*.6,h,w,h*.92);c.lineTo(w,h);c.lineTo(0,h);c.fill();
     for(let i=0;i<100;i++){c.fillStyle=i%2?'#a0a68130':'#0b242b44';c.fillRect((i*137%997)/997*w,h*(.95+(i*31%47)/1000),1.5,1);}
     // Fine suspended particles and a small school give scale without visual clutter.
     c.fillStyle='#deefd63d';for(let i=0;i<24;i++){const x=((i*61.7+t*1.5)%997)/997*w,y=((i*113.3-t*2)%887+887)%887/887*h;c.beginPath();c.arc(x,y,i%3===0?1:.5,0,7);c.fill();}
-    for(let i=0;i<5;i++){const x=w*(.36+i*.065+Math.sin(t*.12)*.06),y=h*(.54+Math.sin(i*3)*.055);c.fillStyle='#a9c0a875';c.beginPath();c.ellipse(x,y,w*.012,h*.008,0,0,7);c.moveTo(x-w*.01,y);c.lineTo(x-w*.02,y-h*.009);c.lineTo(x-w*.02,y+h*.009);c.fill();}
+    paintBubbles(c,w,h,t,this.scenery);
     // Tint the entire scene so plants and substrate also respond to the chosen light.
     c.fillStyle=rgb(light.top,.12);c.fillRect(0,0,w,h);
     c.fillStyle=`rgba(2,8,19,${(1-this.preset.brightness)*.55})`;c.fillRect(0,0,w,h);
