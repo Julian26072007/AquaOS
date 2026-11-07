@@ -10,7 +10,7 @@ Serve the repository over HTTP (ES modules do not work reliably with `file://`):
 python3 -m http.server 8000
 ```
 
-Open http://localhost:8000. Deploy the repository root through GitHub Pages (Settings → Pages → Deploy from a branch → main → / root). All asset URLs are relative and support the `/AquaOS/` project path. Merge the feature PR before Pages serves v0.5.
+Open http://localhost:8000. Deploy the repository root through GitHub Pages (Settings → Pages → Deploy from a branch → main → / root). All asset URLs are relative and support the `/AquaOS/` project path.
 
 ## Structure
 
@@ -34,25 +34,41 @@ Open http://localhost:8000. Deploy the repository root through GitHub Pages (Set
 - `js/scenery.js`: randomized per-visit aquascape, three plant varieties, rocks, schooling and independent fish, and rising bubbles. Geometry stays stable on resize and preset changes; fish proportions follow the shorter canvas edge.
 - `js/renderer.js`: responsive Canvas scene, 30fps cap, DPR capped at 2, hidden-tab suspension and live reduced-motion support. Reduced motion renders a still scene and disables lightning.
 - `js/hardware.js`: simulation-only adapter contract. No network commands or real device control.
-- `tests/browser.cjs`: browser regression checks (development only).
+- `tests/unit/`: browser-free schedule, safety, weather, astronomy and controller regressions.
+- `tests/*.cjs`: browser, rendering and mode UI regressions (development only).
+- `scripts/test-browser.mjs`: focused suite runner with an automatic project-path server.
 
 Presets: Sunny, Clouds, Sunrise, Sunset, Storm, Moonlight, Waves, Rainbow and Sparkle. The selected preset persists on this browser. The preview is artistic, not a calibrated prediction of physical LED output. Normal presets, including Storm, have lightning disabled. Test fixtures explicitly opt in to exercise the dormant flash engine. Reduced motion freezes environmental animation.
 
 ## Verification
 
-With the server running and Playwright available:
+Use Node 22+ for tests. The fast domain suite needs no dependencies or server:
 
 ```sh
-node tests/browser.cjs
-node tests/lighting.cjs
-node tests/field.cjs
-node tests/schedule.cjs
-node tests/natural.cjs
+npm run test:unit
 ```
 
-The default test URL is `http://127.0.0.1:8000/aquaos/` for the workspace parent server. When serving this repository root directly, prefix the commands with `TEST_URL=http://127.0.0.1:8000/`. Set `CHROMIUM_PATH` if Chromium is installed elsewhere.
+For browser tests, install the locked development dependency once:
 
-Tests exercise every preset, mobile widths, keyboard input, persistence, invalid/blocked storage, reduced motion, project-path hosting and browser errors. Chromium mobile emulation is useful but does not replace testing on a physical iPhone in Safari.
+```sh
+npm ci
+npx playwright install chromium # only if system Chromium is unavailable
+npm test
+```
+
+`npm test` runs the unit suite and all five browser suites, starting and stopping
+its own temporary server at a case-sensitive `/AquaOS/` project path. There is no
+build step. Run one or more focused browser suites with
+`npm run test:browser -- schedule natural`, or one domain with
+`node --test tests/unit/schedule.test.cjs`.
+
+`CHROMIUM_PATH` selects an alternate browser executable. `TEST_URL` points to an
+existing server instead (include the project path and trailing slash). Direct
+`node tests/browser.cjs` commands default to `http://127.0.0.1:8000/`.
+
+See [development and validation](docs/development.md) for suite responsibilities,
+measurements and limitations, and [AGENTS.md](AGENTS.md) for the task-to-file map.
+Chromium emulation does not replace physical iPhone/Safari testing.
 
 ## Automatic cycle and preview
 
