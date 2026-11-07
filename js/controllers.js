@@ -1,4 +1,5 @@
 import {calculateLightingAtTime,localMinutes,validateSchedule} from './schedule.js';
+import {PREVIEW_WEATHER} from './preview-weather.js';
 import {getPreset} from './presets.js';
 import {calculateNaturalLighting} from './natural.js';
 import {createNaturalRuntimeSafety} from './safety.js';
@@ -32,13 +33,14 @@ export function createPreviewController(schedule,settings,minutes=localMinutes(n
   validateSchedule(schedule,settings);if(!Number.isFinite(minutes))throw new Error('Invalid preview time');
   schedule=Object.freeze({...schedule});settings=Object.freeze({...settings});
   const context=naturalContext?{...naturalContext,natural:Object.freeze({...naturalContext.natural}),safety:Object.freeze({...naturalContext.safety}),data:naturalContext.data?JSON.parse(JSON.stringify(naturalContext.data)):null}:null;
-  let previewDate=context?.date;
+  let previewDate=context?.date,weatherOverride=null;
   let time=((minutes%1440)+1440)%1440,playing=false,speed=360;
   return {
     snapshot:()=>{
-      const cycle=context?calculateNaturalLighting(epochForZoned(previewDate,time,context.natural.timezone),context.natural,context.safety,context.data,{now:context.now}):calculateLightingAtTime(time,schedule,settings);
+      const cycle=context?calculateNaturalLighting(epochForZoned(previewDate,time,context.natural.timezone),context.natural,context.safety,context.data,{now:context.now,weatherOverride}):calculateLightingAtTime(time,schedule,settings);
       return {source:'preview',playing,speed,...cycle,minutes:time,date:previewDate};
     },
+    setWeatherOverride(name=null){if(!context)throw new Error('Weather simulation requires Natural preview');if(name!==null&&!Object.hasOwn(PREVIEW_WEATHER,name))throw new Error('Invalid preview weather');weatherOverride=name===null?null:PREVIEW_WEATHER[name];},
     resetNow(epoch=Date.now()){if(context){const at=zonedParts(epoch,context.natural.timezone);previewDate=at.date;time=at.minutes;}else time=localMinutes(new Date(epoch));},
     setDate(date){if(!context||!/^\d{4}-\d{2}-\d{2}$/.test(date)||!Number.isFinite(Date.parse(date+'T12:00:00Z'))||new Date(date+'T12:00:00Z').toISOString().slice(0,10)!==date)throw new Error('Invalid preview date');previewDate=date;},
     scrub(value){if(!Number.isFinite(value))throw new Error('Invalid preview time');time=((value%1440)+1440)%1440;},
