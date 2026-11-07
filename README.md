@@ -1,6 +1,6 @@
 # AquaOS v0.5
 
-A mobile-first aquarium lighting preview. Select one of nine moods and see its lighting immediately in an animated underwater scene. Vanilla JavaScript, Canvas 2D and CSS; no build step, runtime dependencies, external fonts or services.
+A mobile-first aquarium lighting preview. The compact screen adapts to the available viewport height, keeping the aquarium, active preset and nine controls visible without scrolling on standard phone sizes, including landscape. Promotional copy is removed; preset descriptions remain available to screen readers. Extremely short screens or enlarged text may scroll to keep controls accessible. Select one of nine moods and see its lighting immediately in an animated underwater scene. Vanilla JavaScript, Canvas 2D and CSS; no build step, runtime dependencies, external fonts or services.
 
 ## Run locally
 
