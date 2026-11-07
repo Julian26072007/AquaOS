@@ -11,15 +11,13 @@
 </head>
 <body>
   <div class="shell">
-    <header><a class="brand" href="./" aria-label="AquaOS home"><span class="brand-mark" aria-hidden="true">≈</span>Aqua<span>OS</span></a><span class="header-note">A little light. A whole new world.</span></header>
+    <header><a class="brand" href="./" aria-label="AquaOS home"><span class="brand-mark" aria-hidden="true">≈</span>Aqua<span>OS</span></a><span class="header-note">Lighting preview</span></header>
     <main>
-      <div class="intro"><p class="eyebrow">YOUR UNDERWATER WORLD</p><h1>Set the mood.<br><span>Let it flow.</span></h1><p>Beautiful light, from sunrise to moonlight.</p></div>
       <section class="preview-section" aria-label="Aquarium lighting preview">
-        <div class="tank"><canvas id="scene" role="img" aria-label="Simulated aquarium lighting"></canvas><span class="preview-label"><i></i> LIGHT PREVIEW</span><span class="tank-wordmark" aria-hidden="true">AquaOS</span></div>
-        <div class="now"><div><p class="eyebrow">CURRENT MOOD</p><h2 id="preset-name">Sunny</h2><p id="preset-description">Bright, natural daylight.</p></div><span class="active-label"><i></i> Active preview</span></div>
+        <div class="tank"><canvas id="scene" role="img" aria-label="Simulated aquarium lighting"></canvas></div>
+        <div class="now"><div><h2 id="preset-name">Sunny</h2><p id="preset-description" class="sr-only">Bright, natural daylight.</p></div><span class="active-label"><i></i> Selected</span></div>
       </section>
-      <section class="presets-section" aria-labelledby="presets-heading"><div class="section-heading"><h2 id="presets-heading">Find your light</h2><span>One tap. A new atmosphere.</span></div><div class="preset-grid" id="presets"></div></section>
-      <p class="footnote">Made for moments of calm. <span>Lighting simulation · v0.5</span></p>
+      <section class="presets-section" aria-labelledby="presets-heading"><div class="section-heading"><h2 id="presets-heading">Presets</h2></div><div class="preset-grid" id="presets"></div></section>
       <p id="announcement" class="sr-only" role="status" aria-live="polite"></p>
       <noscript><p>Please enable JavaScript to explore the lighting presets.</p></noscript>
     </main>
