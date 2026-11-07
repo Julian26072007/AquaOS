@@ -1,6 +1,6 @@
 // World coordinates: x = left→right, y = rear→front. Neither is screen height.
 // RGB and white channels are conceptual normalized requests, not electrical units.
-export const FIELD_CHANNELS=Object.freeze(['r','g','b','red','green','blue','warmWhite','coolWhite','transmission','rear','front']);
+export const FIELD_CHANNELS=Object.freeze(['r','g','b','red','green','blue','warmWhite','coolWhite','transmission','rear','front','cloudOpening']);
 export class LightField {
   constructor(width=96,height=48){
     if(!Number.isInteger(width)||!Number.isInteger(height)||width<2||height<2)throw new RangeError('Field dimensions must be integers >= 2');

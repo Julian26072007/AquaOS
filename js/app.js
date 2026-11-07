@@ -4,7 +4,7 @@ import {AquariumRenderer} from './renderer.js';
 import {createRealLightingController,createPreviewController} from './controllers.js';
 import {formatTime,localMinutes} from './schedule.js';
 import {createWeatherProvider,searchLocations,weatherLabel,locationKey} from './weather.js';
-import {zonedParts} from './astronomy.js';
+import {zonedParts,epochForZoned} from './astronomy.js';
 const $=id=>document.getElementById(id);
 let storage;try{storage=window.localStorage;}catch{/* Storage may be blocked. */}
 const store=createStore(storage);
@@ -102,17 +102,27 @@ function renderPreview(){
 function renderWeatherDiagnostics(){
   const panel=$('weather-diagnostics');if(!panel||!previewRenderer)return;
   const state=preview.snapshot(),w=state.weather,m=state.weatherLighting;
-  const value=(v,unit='')=>Number.isFinite(v)?`${v.toFixed(1)}${unit}`:'unavailable';
+  const value=(v,unit='')=>Number.isFinite(v)?`${v.toFixed(unit?1:4)}${unit}`:'unavailable';
+  const timestamp=v=>Number.isFinite(v)?new Date(v).toISOString():'unavailable';
+  const lighting=previewRenderer.lighting,received=lighting.state,field=lighting.field;
+  let min=Infinity,max=-Infinity;
+  for(let i=0;i<field.data.length;i+=field.stride){const v=(field.data[i]+field.data[i+1]+field.data[i+2])/3;min=Math.min(min,v);max=Math.max(max,v);}
   panel.querySelector('pre').textContent=[
     `${weatherLabel(w)} · ${w.source} · ${m.radiationSource}`,
+    `Selected time ${timestamp(epochForZoned(state.date,state.minutes,store.getState().natural.timezone))}`,
+    `Forecast timestamps ${timestamp(w.forecast?.from)} / ${timestamp(w.forecast?.to)}`,
+    `Raw cloud ${value(w.forecast?.cloudFrom,'%')} / ${value(w.forecast?.cloudTo,'%')} · interpolation ${value(w.forecast?.fraction)}`,
     `Cloud ${value(w.cloud,'%')} · low ${value(w.low,'%')} / mid ${value(w.mid,'%')} / high ${value(w.high,'%')}`,
     `Direct ${value(w.directRadiation,' W/m²')} · diffuse ${value(w.diffuseRadiation,' W/m²')}`,
     `Wind ${value(w.windSpeed,' m/s')} from ${value(w.windDirection,'°')}`,
     `Sun altitude ${value(state.astronomy.sunAltitude*180/Math.PI,'°')}`,
     `Calculated diffuse ${value(m.diffuseIllumination)} · direct ${value(m.directIllumination)} · shadow ${value(m.shadowStrength)}`,
+    `Weather attenuation ${value(state.weatherFactor)} · final intensity ${value(state.brightness)}`,
+    `Renderer cloud ${value(received?.p.cloudCoverage)} · diffuse ${value(received?.ambient)} · direct ${value(received?.direct)} · blend ${value(lighting.blend)}`,
+    `2D field RGB mean min ${value(min)} · max ${value(max)}`,
     'Top-down transmission: left/right · rear (top) / front (bottom)',
   ].join('\n');
-  const canvas=panel.querySelector('canvas'),ctx=canvas.getContext('2d'),field=previewRenderer.lighting.field;
+  const canvas=panel.querySelector('canvas'),ctx=canvas.getContext('2d');
   // Reuse the renderer field, including its front/rear source projection.
   for(let y=0;y<24;y++)for(let x=0;x<48;x++){
     const v=Math.round(field.sample(x/47,y/23).transmission*255);
