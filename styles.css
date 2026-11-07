@@ -41,7 +41,15 @@ header {
 }
 .brand > span:last-child { color: #a9c6b6; }
 .brand-mark { color: #b7d9a0; font-size: 36px; margin-right: 10px; font-weight: 400; }
-.header-note { font-size: 11px; color: #9cb3a6; }
+ .settings-button { min-width: 44px; min-height: 44px; border: 1px solid #ffffff16; background: #ffffff04; color: #b8cbbd; border-radius: 50%; display: grid; place-items: center; cursor: pointer; }
+.settings-button:hover { background: #ffffff0c; }
+.settings-button:focus-visible { outline: 2px solid #d0eca9; outline-offset: 3px; }
+dialog { width: min( calc(100% - 36px), 380px); max-height: calc(100dvh - 48px); overflow: auto; border: 1px solid #61775e; border-radius: 22px; background: #142421; color: #edf5ed; padding: 22px; box-shadow: 0 20px 80px #0008; }
+dialog::backdrop { background: #020c11aa; }
+.dialog-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.dialog-heading h2 { font-size: 23px; font-weight: 500; margin: 0; }
+dialog p { font-size: 14px; line-height: 1.6; color: #b6c9bc; }
+dialog .simulation-note { font-size: 12px; color: #93aa9b; margin-bottom: 0; }
 main { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 12px; padding-top: 8px; }
 .preview-section { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .tank {
