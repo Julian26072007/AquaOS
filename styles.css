@@ -159,3 +159,7 @@ input[type=text], input[type=search], input[type=date] { width: 100%; min-width:
 #preview-phase { max-width: 60%; text-align: right; }
 .simulation-note a { color: #b5ce99; }
 .cycle-meta { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+.weather-status{display:flex;align-items:flex-start;gap:7px;margin:10px 2px;color:var(--muted,#8b959e);font-size:11px;line-height:1.55;text-align:left}
+.weather-status[hidden]{display:none}
+.weather-status p{margin:0;overflow-wrap:anywhere}
