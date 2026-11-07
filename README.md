@@ -1,6 +1,6 @@
 # AquaOS v0.5
 
-A mobile-first aquarium lighting preview. The compact screen adapts to the available viewport height, keeping the aquarium, active preset and nine controls visible without scrolling on standard phone sizes, including landscape. Promotional copy is removed; preset descriptions remain available to screen readers. Extremely short screens or enlarged text may scroll to keep controls accessible. Select one of nine moods and see its lighting immediately in an animated underwater scene. Vanilla JavaScript, Canvas 2D and CSS; no build step, runtime dependencies, external fonts or services.
+A mobile-first aquarium lighting preview. The compact screen adapts to the available viewport height, keeping the aquarium, active preset and nine controls visible without scrolling on standard phone sizes, including landscape. Promotional copy is removed; preset descriptions remain available to screen readers. Extremely short screens or enlarged text may scroll to keep controls accessible. Select one of nine moods and see its lighting immediately in an animated underwater scene. Vanilla JavaScript, Canvas 2D and CSS; no build step, framework or external fonts. Natural Mode optionally uses Open-Meteo; a small astronomy fallback is bundled locally.
 
 ## Run locally
 
@@ -19,6 +19,10 @@ Open http://localhost:8000. Deploy the repository root through GitHub Pages (Set
 - `js/presets.js`: immutable preset definitions and intent-level effect parameters.
 - `js/state.js`: persisted manual/automatic mode, preset, validated schedule and cycle settings; works when storage is blocked.
 - `js/schedule.js`: pure local-time daily lighting calculation and cyclic schedule validation.
+- `js/weather.js`: documented Open-Meteo forecast/geocoding requests, per-location cache, interpolation and offline fallback.
+- `js/astronomy.js`, `js/vendor/suncalc.js`: aquarium-timezone conversion and sun/moon calculations (SunCalc 1.9.0, BSD-2-Clause).
+- `js/natural.js`, `js/safety.js`: bounded natural targets, photoperiod/darkness budgets, rate and brightness limits.
+- `js/hardware-output.js`, `js/device-plan.js`: pure future output gate and serializable autonomous-plan draft; reject preview sources and perform no communication.
 - `js/controllers.js`: independent real-clock lighting controller and simulation-only preview controller. Preview accepts no output or persistence callback.
 - `js/effects.js`: two broad conceptual assemblies, lighting state, material illumination and water projection.
 - `js/light-field.js`: reusable 96×48 top-down field with bilinear sampling, conceptual RGB/white channels and front/rear contributions.
@@ -32,7 +36,7 @@ Open http://localhost:8000. Deploy the repository root through GitHub Pages (Set
 - `js/hardware.js`: simulation-only adapter contract. No network commands or real device control.
 - `tests/browser.cjs`: browser regression checks (development only).
 
-Presets: Sunny, Clouds, Sunrise, Sunset, Storm, Moonlight, Waves, Rainbow and Sparkle. The selected preset persists on this browser. The preview is artistic, not a calibrated prediction of physical LED output. Storm uses occasional soft lightning; reduced motion disables flashes and all animation.
+Presets: Sunny, Clouds, Sunrise, Sunset, Storm, Moonlight, Waves, Rainbow and Sparkle. The selected preset persists on this browser. The preview is artistic, not a calibrated prediction of physical LED output. Normal presets, including Storm, have lightning disabled. Test fixtures explicitly opt in to exercise the dormant flash engine. Reduced motion freezes environmental animation.
 
 ## Verification
 
@@ -43,6 +47,7 @@ node tests/browser.cjs
 node tests/lighting.cjs
 node tests/field.cjs
 node tests/schedule.cjs
+node tests/natural.cjs
 ```
 
 The default test URL is `http://127.0.0.1:8000/aquaos/` for the workspace parent server. When serving this repository root directly, prefix the commands with `TEST_URL=http://127.0.0.1:8000/`. Set `CHROMIUM_PATH` if Chromium is installed elsewhere.
@@ -56,6 +61,16 @@ Choose **Automatic** to follow local browser time, or **Manual** to use the exis
 **Preview day** opens a simulation sheet with the same aquarium artwork/renderer, a 24-hour slider, Play/Pause, 60×/360×/1440× playback and Now. One full cycle takes 24 minutes, 4 minutes or 1 minute respectively. Scrubbing and playback affect only the preview; clouds use ordinary elapsed animation time. Preview state is discarded on closing and never saved. The main real-clock controller continues while its covered canvas is suspended.
 
 See [schedule and preview architecture](docs/automatic-cycle.md) for persistence, validation, local-time behavior, tests and the strict future hardware boundary.
+
+## Natural Mode
+
+Choose **Natural** and set the aquarium's city (manual search) or coordinates and IANA timezone in Settings. No GPS permission is used. Natural Mode follows a bounded, astronomy-centered aquarium window rather than copying the outdoor day length. Defaults: a **9-hour total light budget**, 80% maximum requested output, at least 12 hours of protected darkness, at most 25% weather dimming and a 2 percentage-point/minute live brightness change limit. Night defaults to off. Optional astronomical moonlight is extremely dim and reserves time from the same budget; optional pre-dawn twilight is a separate phase.
+
+Unknown Natural output starts at off and ramps gradually; the main status says **Ramping**. At the default limit, reaching 80% from off takes about 40 minutes. The daily preview shows the planned cycle immediately without changing live state. The safety layer may extend requested ramps or reduce peak brightness to fit limits. Manual and fixed Automatic modes remain explicit user-controlled modes; these new policy limits constrain Natural Mode.
+
+Current/forecast weather refreshes every 15 minutes with per-location caching. Offline, recent forecasts are reused for at most 24 hours before neutral estimated weather takes over; astronomy works locally. Natural preview adds an aquarium-date selector and uses forecast interpolation, with estimated weather clearly labeled outside coverage. Cloud motion stays at normal animation speed at 60×/360×/1440× schedule playback. **No preview action can reach hardware output.**
+
+Read [Natural Mode architecture, verified API fields and safety policy](docs/natural-mode.md) for limitations and future standalone-controller requirements. Percentages are controller levels, not measured lux or a guarantee of biological equivalence to moonlight.
 
 ## Lighting model
 

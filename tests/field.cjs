@@ -30,7 +30,7 @@ const assert=require('node:assert/strict');
   const darkFront=DEFAULT_ASSEMBLIES.map(s=>({...s,gain:s.id==='front'?0:1}));
   const isolated=engine.sample(engine.state(p,30,false,darkFront),.5,.7);
   let flashChannelRise=0;
-  for(let t=5;t<8;t+=.025){const s=engine.state(getPreset('storm'),t);if(s.flash){const lit=engine.sample(s,.5,.5),dark=engine.sample({...s,flash:0},.5,.5);flashChannelRise=Math.max(flashChannelRise,lit.coolWhite-dark.coolWhite);}}
+  for(let t=5;t<8;t+=.025){const s=engine.state({...getPreset('storm'),allowLightning:true},t);if(s.flash){const lit=engine.sample(s,.5,.5),dark=engine.sample({...s,flash:0},.5,.5);flashChannelRise=Math.max(flashChannelRise,lit.coolWhite-dark.coolWhite);}}
   const noWarm=DEFAULT_ASSEMBLIES.map(s=>({...s,warmWhite:0}));
   const noWarmSample=engine.sample(engine.state(p,30,false,noWarm),.5,.7);
   // A cloud varies smoothly with either overhead coordinate and drifts in both.

@@ -11,9 +11,18 @@ export const DEFAULT_ASSEMBLIES=Object.freeze([
   Object.freeze({id:'front',y:.78,gain:1,rgb:Object.freeze([1,1,1]),warmWhite:.42,coolWhite:.58}),
 ]);
 export class LightingEngine {
-  constructor(seed=7319){this.clouds=createCloudField(seed);this.caustics=createCaustics(seed+13);this.lightning=createLightning(seed+37);}
+  constructor(seed=7319){this.clouds=createCloudField(seed);this.caustics=createCaustics(seed+13);this.lightning=createLightning(seed+37);this.wind={x:0,y:0,vx:.023,vy:.011,last:0};}
   state(p,t,reduced=false,assemblies=DEFAULT_ASSEMBLIES){
     if(reduced)t=0;
+    let motion=null;
+    if(p.wind){
+      if(!reduced){
+      const dt=Math.max(0,t-this.wind.last),k=1-Math.exp(-dt/20),oldX=this.wind.vx,oldY=this.wind.vy;
+      this.wind.vx+=(p.wind.x-this.wind.vx)*k;this.wind.vy+=(p.wind.y-this.wind.vy)*k;
+      this.wind.x+=(oldX+this.wind.vx)*.5*dt;this.wind.y+=(oldY+this.wind.vy)*.5*dt;this.wind.last=t;
+      }
+      motion={x:this.wind.x,y:this.wind.y,coverage:p.cloudCoverage};
+    }
     const config=p.lighting;
     if(p.whiteBalance!==undefined)assemblies=assemblies.map(s=>{const warmWhite=Math.max(0,Math.min(1,p.whiteBalance+s.warmWhite-.48));return {...s,warmWhite,coolWhite:1-warmWhite};});
     if(p.rgbGain!==undefined)assemblies=assemblies.map(s=>({...s,rgb:s.rgb.map(value=>value*p.rgbGain)}));
@@ -22,7 +31,7 @@ export class LightingEngine {
     if(p.id==='sunset')direct*=.3+.7*Math.exp(-t/100);
     let tint=config.tint;
     if(p.id==='rainbow')tint=[0,2.094,4.189].map(phase=>.78+.17*Math.sin(t*.09+phase));
-    return {cloudMask:p.cloudDensity?this.clouds.prepare(t,p.cloudDensity):null,assemblies,p,t,ambient:config.ambient,direct,tint,flash:p.id==='storm'&&!reduced?this.lightning(t):0};
+    return {cloudMask:p.cloudDensity?this.clouds.prepare(t,p.cloudDensity,motion):null,assemblies,p,t,ambient:config.ambient,direct,tint,flash:p.id==='storm'&&p.allowLightning===true&&!reduced?this.lightning(t):0};
   }
   sample(state,x,y,aspect=1,out={}){
     const {p,t,ambient,direct,tint,flash}=state;
@@ -33,7 +42,8 @@ export class LightingEngine {
       const distance=y-source.y,weight=1-.28*distance*distance;
       const shade=state.cloudMask?state.cloudMask(x,y*.6+source.y*.4):1;
       // Diffuse overhead light keeps broad shadows instead of local spotlights.
-      const trans=.18+.82*shade;
+      const floor=p.cloudTransmissionFloor??.18;
+      const trans=floor+(1-floor)*shade;
       const energy=direct*source.gain*weight*trans*.5;
       red+=energy*.35*source.rgb[0];green+=energy*.35*source.rgb[1];blue+=energy*.35*source.rgb[2];
       warmWhite+=energy*.65*source.warmWhite;
