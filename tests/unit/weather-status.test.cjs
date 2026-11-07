@@ -1,0 +1,21 @@
+const test=require('node:test');
+const assert=require('node:assert/strict');
+test('weather status keeps provider observations independent of renderer input',async()=>{
+  const {apiWeatherAt,weatherStatus}=await import('../../js/weather-status.js');
+  const at=Date.parse('2026-06-21T12:00Z');
+  const data={fetchedAt:at,hourly:[{at,cloud:10,code:0},{at:at+3600000,cloud:96,code:3}],current:{at,cloud:0,code:0}};
+  const api=apiWeatherAt(at+3600000,data,at);
+  const preset={id:'natural',description:'Rain · Day',cloudCoverage:.7};
+  assert.deepEqual(weatherStatus(api,preset),{api:'API: Overcast · 96% clouds · Forecast',applied:'Applied: Rain · 70% clouds'});
+  assert.equal(apiWeatherAt(at,data,at).source,'forecast');
+  assert.equal(apiWeatherAt(at,data,at,{current:true}).cloud,0);
+  assert.equal(apiWeatherAt(at+7200000,data,at),null);
+  assert.equal(apiWeatherAt(at,null,at),null);
+  assert.equal(weatherStatus(null,null).applied,'Applied: Unavailable');
+  assert.match(weatherStatus(null,preset,{fallback:true}).applied,/Fallback \(estimated\)/);
+  assert.match(weatherStatus(api,preset,{simulation:true}).applied,/Developer simulation/);
+  const missing=apiWeatherAt(at,{fetchedAt:at,hourly:[{at},{at:at+3600000}]},at);
+  assert.equal(weatherStatus(missing,null).api,'API: Unavailable · Forecast');
+  assert.equal(weatherStatus(apiWeatherAt(at,data,at),preset).api,'API: Clear · 10% clouds · Forecast');
+  assert.equal(preset.cloudCoverage,.7);
+});

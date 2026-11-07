@@ -16,6 +16,7 @@
       <div class="mode-bar" role="group" aria-label="Lighting mode"><button id="mode-auto" type="button" aria-pressed="false">Automatic</button><button id="mode-natural" type="button" aria-pressed="false">Natural</button><button id="mode-manual" type="button" aria-pressed="true">Manual</button></div>
       <section class="preview-section" aria-label="Aquarium lighting preview">
         <div class="tank"><canvas id="scene" role="img" aria-label="Simulated aquarium lighting"></canvas></div>
+        <div id="weather-status" class="weather-status" hidden><span aria-hidden="true">☁</span><div><p id="weather-api">API: Unavailable</p><p id="weather-applied">Applied: Unavailable</p></div></div>
         <div class="now"><div><h2 id="preset-name">Sunny</h2><p id="cycle-meta" class="cycle-meta" hidden></p><p id="preset-description" class="sr-only">Bright, natural daylight.</p></div><span id="manual-status" class="active-label"><i></i> Selected</span><button id="preview-open" class="quiet-button" type="button" aria-haspopup="dialog" hidden>Preview day</button></div>
       </section>
       <section class="presets-section" aria-labelledby="presets-heading"><div class="section-heading"><h2 id="presets-heading">Presets</h2></div><div class="preset-grid" id="presets"></div></section>
@@ -71,6 +72,7 @@
     <p id="preview-notice" class="simulation-note">Simulation only · your real lighting is unaffected.</p>
     <div id="preview-natural-row" hidden><label for="preview-date">Aquarium date</label><input id="preview-date" type="date"><p id="preview-weather" class="simulation-note"></p></div>
     <div class="tank preview-tank"><canvas id="preview-scene" role="img" aria-label="Simulated daily lighting cycle"></canvas></div>
+    <div id="preview-weather-status" class="weather-status"><span aria-hidden="true">☁</span><div><p id="preview-weather-status-api">API: Unavailable</p><p id="preview-weather-status-applied">Applied: Unavailable</p></div></div>
     <div class="preview-readout"><output id="preview-time" aria-live="off">00:00</output><span id="preview-phase">Night</span></div>
     <label class="sr-only" for="preview-timeline">Preview time of day</label><input id="preview-timeline" type="range" min="0" max="1440" step="1" value="0">
     <div class="timeline-labels" aria-hidden="true"><span>00:00</span><span>12:00</span><span>24:00</span></div>

@@ -5,6 +5,7 @@ import {createRealLightingController,createPreviewController} from './controller
 import {formatTime,localMinutes} from './schedule.js';
 import {createWeatherProvider,searchLocations,weatherLabel,locationKey} from './weather.js';
 import {zonedParts,epochForZoned} from './astronomy.js';
+import {apiWeatherAt,weatherStatus} from './weather-status.js';
 const $=id=>document.getElementById(id);
 let storage;try{storage=window.localStorage;}catch{/* Storage may be blocked. */}
 const store=createStore(storage);
@@ -21,12 +22,19 @@ for(const p of presets){
   button.append(icon,name,check);button.addEventListener('click',()=>store.selectPreset(p.id));$('presets').append(button);
 }
 function text(id,value){if($(id).textContent!==value)$(id).textContent=value;}
+function showWeatherStatus(prefix,api,preset,options={}){
+  const status=weatherStatus(api,preset,options);
+  text(prefix+'-api',status.api);text(prefix+'-applied',status.applied);
+}
 function renderReal(output){
   const natural=output.mode==='natural',automatic=output.mode!=='manual',p=output.preset;
   if(automatic)renderer.setLighting(p);else if(renderer.preset.id!==p.id)renderer.setPreset(p);
   text('preset-name',p.name);text('preset-description',p.description);
   $('mode-auto').setAttribute('aria-pressed',String(output.mode==='automatic'));$('mode-natural').setAttribute('aria-pressed',String(natural));$('mode-manual').setAttribute('aria-pressed',String(!automatic));
   $('preview-open').hidden=!automatic;$('manual-status').hidden=automatic;$('cycle-meta').hidden=!automatic;
+  $('weather-status').hidden=!automatic;
+  const data=weatherProvider.snapshot().data,n=store.getState().natural;
+  showWeatherStatus('weather',natural?apiWeatherAt(output.at,data?.key===locationKey(n)?data:null,output.at,{current:true}):null,renderer.preset,{fallback:output.cycle?.weather?.source==='estimated',cached:output.cycle?.weatherStatus==='offline'});
   if(automatic&&!natural)text('cycle-meta',`${output.cycle.brightness===0?'Lights off · ':''}${output.cycle.nextPhase} at ${formatTime(output.cycle.nextTransition)}`);
   if(natural){
     const cycle=output.cycle,sky=cycle.nextAstronomy;
@@ -91,9 +99,11 @@ $('location-results').addEventListener('change',()=>{if($('location-results').va
 // Preview owns a separate controller, renderer and playback timestamp. It only
 // copies schedule configuration from the store and cannot write it or real time.
 const previewDialog=$('preview-dialog');dismissOnBackdrop(previewDialog);
+let previewWeatherData=null,previewNatural=null,previewWeatherNow=null;
 let preview=null,previewRenderer=null,previewFrame=0,previewLast=null,previewDiagnosticsAt=0;
 function renderPreview(){
   const state=preview.snapshot();previewRenderer.setLighting(state.preset);
+  showWeatherStatus('preview-weather-status',previewWeatherData&&state.date?apiWeatherAt(epochForZoned(state.date,state.minutes,previewNatural.timezone),previewWeatherData,previewWeatherNow):null,previewRenderer.preset,{fallback:state.weather?.source==='estimated',simulation:state.weather?.source==='simulation'});
   $('preview-timeline').value=state.minutes;$('preview-timeline').setAttribute('aria-valuetext',`${formatTime(state.minutes)}, ${state.phase}`);
   text('preview-time',formatTime(state.minutes));text('preview-phase',state.phase+(state.astronomy&&state.phase==='Moonlight'?' · '+state.astronomy.moonLabel:''));
   if(state.weather)text('preview-weather',`${weatherLabel(state.weather)} · ${state.weather.source==='simulation'?'Developer simulation':state.weather.source==='estimated'?'Estimated weather':'Forecast'}${state.phase==='Night'&&state.moonEnabled?' · '+state.astronomy.moonLabel:''}`);
@@ -135,6 +145,7 @@ function previewTick(now){
 $('preview-open').addEventListener('click',()=>{
   const {schedule,cycleSettings,mode,natural,safety}=store.getState(),at=Date.now(),zoned=zonedParts(at,natural.timezone);
   const naturalMode=mode==='natural',data=weatherProvider.snapshot().data;
+  previewWeatherData=naturalMode&&data?.key===locationKey(natural)?data:null;previewNatural=natural;previewWeatherNow=at;
   preview=createPreviewController(schedule,cycleSettings,naturalMode?zoned.minutes:localMinutes(new Date()),naturalMode?{natural,safety,data:data?.key===locationKey(natural)?data:null,date:zoned.date,now:at}:null);
   $('preview-natural-row').hidden=!naturalMode;$('preview-date').value=zoned.date;
   // Opt-in developer controls affect only the isolated preview controller.
