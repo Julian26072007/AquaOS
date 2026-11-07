@@ -1,10 +1,12 @@
-import {sampleLight,rgb} from './effects.js';
+import {LightingPass,rgb} from './effects.js';
+import {AnimationClock} from './timing.js';
 import {createScenery,paintRocks,paintPlants,paintFish,paintBubbles} from './scenery.js';
 export class AquariumRenderer {
   constructor(canvas,preset){
     this.canvas=canvas;this.ctx=canvas.getContext('2d');this.preset=preset;this.previous=preset;
     this.scenery=createScenery();
-    this.elapsed=0;this.transition=1;this.last=0;this.frame=0;
+    this.clock=new AnimationClock();this.lighting=new LightingPass();
+    this.transition=1;this.frame=0;this.lastPaint=null;
     this.motion=matchMedia('(prefers-reduced-motion: reduce)');
     this.tick=this.tick.bind(this);this.restart=this.restart.bind(this);
     this.observer=new ResizeObserver(()=>{this.resize();this.draw();});this.observer.observe(canvas);
@@ -13,12 +15,16 @@ export class AquariumRenderer {
     this.resize();this.restart();
   }
   resize(){const r=this.canvas.getBoundingClientRect();this.w=r.width;this.h=r.height;const d=Math.min(devicePixelRatio||1,2);this.canvas.width=Math.round(this.w*d);this.canvas.height=Math.round(this.h*d);this.ctx?.setTransform(d,0,0,d,0,0);}
-  setPreset(p){this.previous=this.preset;this.preset=p;this.transition=this.motion.matches?1:.22;this.canvas.setAttribute('aria-label',`${p.name}: ${p.description} Simulated aquarium lighting.`);this.draw();this.restart();}
-  restart(){cancelAnimationFrame(this.frame);this.last=0;if(!document.hidden){this.draw();if(!this.motion.matches)this.frame=requestAnimationFrame(this.tick);}}
-  tick(now){if(this.last&&now-this.last<1000/30){this.frame=requestAnimationFrame(this.tick);return;}const dt=this.last?Math.min((now-this.last)/1000,.1):0;this.last=now;this.elapsed+=dt;this.transition=Math.min(1,this.transition+dt*2);this.draw();this.frame=requestAnimationFrame(this.tick);}
-  draw(){if(!this.ctx||!this.w||!this.h)return;const c=this.ctx,w=this.w,h=this.h,t=this.motion.matches?0:this.elapsed;
-    c.clearRect(0,0,w,h);this.paintWater(this.previous,t,1);this.paintWater(this.preset,t,this.transition);
-    const light=sampleLight(this.preset,t,.5,this.motion.matches);
+  setPreset(p){this.previous=this.preset;this.preset=p;this.transition=this.motion.matches?1:0;this.canvas.setAttribute('aria-label',`${p.name}: ${p.description} Simulated aquarium lighting.`);this.draw();this.restart();}
+  restart(){cancelAnimationFrame(this.frame);if(this.motion.matches)this.transition=1;this.clock.reset();this.lastPaint=null;if(!document.hidden){this.draw();if(!this.motion.matches)this.frame=requestAnimationFrame(this.tick);}}
+  tick(now){
+    const previous=this.clock.elapsed,t=this.clock.advance(now);
+    this.transition=Math.min(1,this.transition+(t-previous)*2);
+    if(this.lastPaint===null || now-this.lastPaint>=1000/30){this.draw();this.lastPaint=now;}
+    this.frame=requestAnimationFrame(this.tick);
+  }
+  draw(){if(!this.ctx||!this.w||!this.h)return;const c=this.ctx,w=this.w,h=this.h,t=this.motion.matches?0:this.clock.elapsed;
+    c.clearRect(0,0,w,h);this.paintWater(this.previous,1);this.paintWater(this.preset,this.transition);
     paintPlants(c,w,h,t,this.scenery,true);
     paintRocks(c,w,h,this.scenery);
     paintFish(c,w,h,t,this.scenery);
@@ -28,21 +34,15 @@ export class AquariumRenderer {
     // Fine suspended particles and a small school give scale without visual clutter.
     c.fillStyle='#deefd63d';for(let i=0;i<24;i++){const x=((i*61.7+t*1.5)%997)/997*w,y=((i*113.3-t*2)%887+887)%887/887*h;c.beginPath();c.arc(x,y,i%3===0?1:.5,0,7);c.fill();}
     paintBubbles(c,w,h,t,this.scenery);
-    // Tint the entire scene so plants and substrate also respond to the chosen light.
-    c.fillStyle=rgb(light.top,.12);c.fillRect(0,0,w,h);
-    c.fillStyle=`rgba(2,8,19,${(1-this.preset.brightness)*.55})`;c.fillRect(0,0,w,h);
+    this.lighting.apply(c,w,h,this.preset,this.previous,this.transition,t,this.motion.matches);
     const vignette=c.createRadialGradient(w*.5,h*.35,h*.1,w*.5,h*.5,w*.72);vignette.addColorStop(0,'#00000000');vignette.addColorStop(1,'#020e165c');c.fillStyle=vignette;c.fillRect(0,0,w,h);
   }
-  paintWater(p,t,alpha){const c=this.ctx,w=this.w,h=this.h,L=sampleLight(p,t,.5,this.motion.matches);c.save();c.globalAlpha=alpha;
-    const bg=c.createLinearGradient(0,0,w*.2,h);bg.addColorStop(0,rgb(L.top));bg.addColorStop(.5,rgb(L.bottom.map(v=>v*1.5)));bg.addColorStop(1,rgb(L.bottom));c.fillStyle=bg;c.fillRect(0,0,w,h);
-    c.globalCompositeOperation='screen';
-    for(let i=0;i<12;i++){const l=sampleLight(p,t,i/12,this.motion.matches),x=w*(i/11+Math.sin(l.time+i)*.025);const beam=c.createLinearGradient(x,0,x+w*.12,h);beam.addColorStop(0,rgb(l.top,.24*l.shade));beam.addColorStop(1,rgb(l.top,0));c.fillStyle=beam;c.beginPath();c.moveTo(x-w*.025,0);c.lineTo(x+w*.025,0);c.lineTo(x+w*.22,h);c.lineTo(x-w*.07,h);c.fill();}
-    c.globalCompositeOperation='source-over';
-    if(p.cloudDensity)for(let i=0;i<3;i++){const x=((i*.44+L.time*.035)%1.8-.4)*w;const g=c.createRadialGradient(x,0,0,x,h*.12,w*.48);g.addColorStop(0,`rgba(4,12,26,${p.cloudDensity*.55})`);g.addColorStop(1,'#00000000');c.fillStyle=g;c.fillRect(0,0,w,h);}
-    if(p.id==='waves'||p.id==='sunny'){c.strokeStyle=rgb(L.top,p.id==='waves'?.22:.07);c.lineWidth=1;for(let i=0;i<15;i++){c.beginPath();for(let x=0;x<=w;x+=8){const y=h*(.15+i*.055)+Math.sin(x*.025+L.time*2+i)*h*.018;c.lineTo(x,y);}c.stroke();}}
-    if(p.id==='sparkle'){for(let i=0;i<22;i++){const a=(.5+.5*Math.sin(L.time*2+i*2.4))**12;c.fillStyle=rgb([228,239,198],a*.65);const x=(i*137%991)/991*w,y=(i*73%751)/751*h;c.fillRect(x-2,y,5,1);c.fillRect(x,y-2,1,5);}}
-    if(L.flash){c.fillStyle=rgb([210,225,255],L.flash*.3);c.fillRect(0,0,w,h);c.strokeStyle=rgb([227,238,255],L.flash);c.lineWidth=1.5;c.beginPath();c.moveTo(w*.72,0);c.lineTo(w*.68,h*.14);c.lineTo(w*.73,h*.13);c.lineTo(w*.65,h*.31);c.stroke();}
-    c.restore();
+  paintWater(p,alpha){
+    const c=this.ctx,w=this.w,h=this.h;
+    c.save();c.globalAlpha=alpha;
+    const bg=c.createLinearGradient(0,0,w*.2,h);
+    bg.addColorStop(0,rgb(p.top));bg.addColorStop(.5,rgb(p.bottom.map(v=>v*1.5)));bg.addColorStop(1,rgb(p.bottom));
+    c.fillStyle=bg;c.fillRect(0,0,w,h);c.restore();
   }
   destroy(){cancelAnimationFrame(this.frame);this.observer.disconnect();this.motion.removeEventListener('change',this.restart);document.removeEventListener('visibilitychange',this.restart);}
 }
