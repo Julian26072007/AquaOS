@@ -18,7 +18,10 @@ Open http://localhost:8000. Deploy the repository root through GitHub Pages (Set
 - `js/app.js`: preset buttons and UI wiring.
 - `js/presets.js`: immutable preset definitions and intent-level effect parameters.
 - `js/state.js`: validated selection, subscriptions and versioned local storage; works when storage is blocked.
-- `js/effects.js`: reusable lighting state/sampling and a low-resolution illumination/scattering pass applied to all scene materials.
+- `js/effects.js`: two broad conceptual assemblies, lighting state, material illumination and water projection.
+- `js/light-field.js`: reusable 96×48 top-down field with bilinear sampling, conceptual RGB/white channels and front/rear contributions.
+- `js/hardware-mapping.js`: capability-based averaging into uniform or segmented channels; no device communication.
+- `dev/light-map.html`: developer-only overhead illumination/cloud map, separate from the normal interface.
 - `js/noise.js`, `js/clouds.js`: cached noise lattice, layered fBm, smooth cloud transmittance and slow coverage variation.
 - `js/caustics.js`: independent, warped refractive highlights, attenuated by cloud transmittance.
 - `js/timing.js`: timestamp-based visible animation clock and deterministic irregular lightning events.
@@ -36,6 +39,7 @@ With the server running and Playwright available:
 ```sh
 node tests/browser.cjs
 node tests/lighting.cjs
+node tests/field.cjs
 ```
 
 The default test URL is `http://127.0.0.1:8000/aquaos/` for the workspace parent server. When serving this repository root directly, prefix the commands with `TEST_URL=http://127.0.0.1:8000/`. Set `CHROMIUM_PATH` if Chromium is installed elsewhere.
@@ -44,11 +48,14 @@ Tests exercise every preset, mobile widths, keyboard input, persistence, invalid
 
 ## Lighting model
 
-The UI and aquarium artwork are unchanged. A shared 96×64 radiance map modulates the completed scene, so fish, foliage, water and substrate receive the same light. Stable ambient illumination remains under clouds; directional sunlight is attenuated with depth and two large-scale cloud fields. Each field uses three smoothly interpolated noise octaves over cached lattice values. No circles, triangle beams, animated strips or per-frame randomness are used for cloud shadows. Dominant cloud structures cross the tank in approximately 85 seconds; a second layer drifts more slowly, with a slower coverage envelope. The underlying lattice is periodic only over hours of travel.
+The UI and aquarium artwork are unchanged. Illumination is a top-down field `light(x, y, time)`: x runs left-to-right, y runs rear-to-front, both normalized to 0–1. Screen height is **not** tank depth. A separate z coordinate measures distance below the water surface for attenuation. The 96×48 field exposes simulated radiance, conceptual RGB/warm-white/cool-white requests, cloud transmittance and independent front/rear source contributions.
 
+The rear and front assemblies sit at y = 0.22 and 0.78 in this conceptual model. Their broad influence overlaps across the tank rather than producing spotlights. Independent gains, RGB multipliers and white-channel strengths can differ. Cloud transmittance varies over both overhead axes; two noise layers move diagonally at slightly different velocities, with slow coverage changes. Smooth cloud masks are cached at 40×24 and sampled into the finer field. A diffuse baseline preserves visibility under cloud cover; no radial/conical source masks are drawn.
+
+Each plant, fish, rock and bubble has approximate `worldY` metadata independent of its screen height. Materials sample the shared field at their x/worldY location. The water/back wall samples a fixed rear plane; screen height only attenuates light through the water. Only the visible floor uses a perspective mapping from rearward substrate to front glass. It receives a clipped spatial light map, including left/right differences.
 Independent noise ridges create subtle water caustics. Their energy falls with blocked sunlight. A low-energy scattering pass adds water depth without cones. Sunrise increases asymptotically over about 90 seconds of visible simulation time, sunset decreases over about 100 seconds; both settle without an obvious loop. Storm has irregularly spaced, sometimes paired global flashes. Moonlight stays cool and dim; Rainbow gently cycles color and Sparkle uses low-amplitude highlights. All animation shares elapsed visible time, so dropped frames do not slow cloud travel. Hidden tabs pause the clock; reduced motion produces a still frame and no lightning.
 
-The map and image buffers are reused, samples avoid per-frame object churn, and Canvas interpolates the low-resolution maps to the DPR-capped output. No full-resolution CPU pixel loop is used. See [lighting validation](docs/lighting-validation.md) for time-separated Clouds captures and measured limitations.
+Field/image buffers are reused, cloud noise is generated only at reduced resolution, and the rear wall reuses one overhead sample per column. No full-resolution CPU pixel loop is used. See [2D lighting and mapping](docs/2d-lighting.md) for developer visualization, capability examples, validation and physical limitations. The [previous lighting validation](docs/lighting-validation.md) records the earlier screen-space implementation.
 
 ## Hardware boundary and next steps
 

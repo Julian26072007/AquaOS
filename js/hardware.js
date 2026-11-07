@@ -8,3 +8,6 @@ export class SimulationAdapter {
   async applyIntent(_intent){ return {applied:false,reason:'preview-only'}; }
   async disconnect(){}
 }
+
+// Optional pure conversion only; no physical output is performed.
+export {mapLightField,UNIFORM_CAPABILITIES} from './hardware-mapping.js';
