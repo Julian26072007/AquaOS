@@ -24,17 +24,17 @@ export class AquariumRenderer {
     this.frame=requestAnimationFrame(this.tick);
   }
   draw(){if(!this.ctx||!this.w||!this.h)return;const c=this.ctx,w=this.w,h=this.h,t=this.motion.matches?0:this.clock.elapsed;
-    c.clearRect(0,0,w,h);this.paintWater(this.previous,1);this.paintWater(this.preset,this.transition);
-    paintPlants(c,w,h,t,this.scenery,true);
-    paintRocks(c,w,h,this.scenery);
-    paintFish(c,w,h,t,this.scenery);
-    paintPlants(c,w,h,t,this.scenery,false);
-    const sand=c.createLinearGradient(0,h*.91,0,h);sand.addColorStop(0,'#4c5946');sand.addColorStop(1,'#202e29');c.fillStyle=sand;c.beginPath();c.moveTo(0,h*.95);c.bezierCurveTo(w*.3,h*.87,w*.6,h,w,h*.92);c.lineTo(w,h);c.lineTo(0,h);c.fill();
-    for(let i=0;i<100;i++){c.fillStyle=i%2?'#a0a68130':'#0b242b44';c.fillRect((i*137%997)/997*w,h*(.95+(i*31%47)/1000),1.5,1);}
+    this.lighting.prepare(this.preset,this.previous,this.transition,t,this.motion.matches);
+    c.clearRect(0,0,w,h);this.paintWater(this.previous,1);this.paintWater(this.preset,this.transition);this.lighting.applyWater(c,w,h);
+    paintPlants(c,w,h,t,this.scenery,true,this.lighting);
+    paintRocks(c,w,h,this.scenery,this.lighting);
+    paintFish(c,w,h,t,this.scenery,this.lighting);
+    paintPlants(c,w,h,t,this.scenery,false,this.lighting);
+    const sand=c.createLinearGradient(0,h*.91,0,h);sand.addColorStop(0,'#4c5946');sand.addColorStop(1,'#202e29');c.fillStyle=sand;c.beginPath();c.moveTo(0,h*.95);c.bezierCurveTo(w*.3,h*.87,w*.6,h,w,h*.92);c.lineTo(w,h);c.lineTo(0,h);c.fill();c.save();c.clip();this.lighting.applyWater(c,w,h,.12,true);c.restore();
+    for(let i=0;i<100;i++){c.fillStyle=this.lighting.color(i%2?'#a0a68130':'#0b242b44',(i*137%997)/997,.85,.95);c.fillRect((i*137%997)/997*w,h*(.95+(i*31%47)/1000),1.5,1);}
     // Fine suspended particles and a small school give scale without visual clutter.
-    c.fillStyle='#deefd63d';for(let i=0;i<24;i++){const x=((i*61.7+t*1.5)%997)/997*w,y=((i*113.3-t*2)%887+887)%887/887*h;c.beginPath();c.arc(x,y,i%3===0?1:.5,0,7);c.fill();}
-    paintBubbles(c,w,h,t,this.scenery);
-    this.lighting.apply(c,w,h,this.preset,this.previous,this.transition,t,this.motion.matches);
+    for(let i=0;i<24;i++){const x=((i*61.7+t*1.5)%997)/997*w,y=((i*113.3-t*2)%887+887)%887/887*h;c.fillStyle=this.lighting.color('#deefd63d',x/w,.5,y/h);c.beginPath();c.arc(x,y,i%3===0?1:.5,0,7);c.fill();}
+    paintBubbles(c,w,h,t,this.scenery,this.lighting);
     const vignette=c.createRadialGradient(w*.5,h*.35,h*.1,w*.5,h*.5,w*.72);vignette.addColorStop(0,'#00000000');vignette.addColorStop(1,'#020e165c');c.fillStyle=vignette;c.fillRect(0,0,w,h);
   }
   paintWater(p,alpha){
