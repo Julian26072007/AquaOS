@@ -36,7 +36,7 @@ export class LightingEngine {
   sample(state,x,y,aspect=1,out={}){
     const {p,t,ambient,direct,tint,flash}=state;
     // Broad, overlapping sources. y is tank depth; no vertical attenuation here.
-    let red=0,green=0,blue=0,warmWhite=0,coolWhite=0,transmission=0,totalWeight=0;
+    let red=0,green=0,blue=0,warmWhite=0,coolWhite=0,transmission=0,cloudOpening=0,totalWeight=0;
     out.rear=0;out.front=0;
     for(const source of state.assemblies){
       const distance=y-source.y,weight=1-.28*distance*distance;
@@ -49,7 +49,7 @@ export class LightingEngine {
       warmWhite+=energy*.65*source.warmWhite;
       coolWhite+=energy*.65*source.coolWhite;
       out[source.id]=energy;
-      transmission+=weight*trans;totalWeight+=weight;
+      transmission+=weight*trans;cloudOpening+=weight*shade;totalWeight+=weight;
     }
     out.red=red*tint[0]+flash*.30;out.green=green*tint[1]+flash*.32;out.blue=blue*tint[2]+flash*.35;
     out.warmWhite=warmWhite;out.coolWhite=coolWhite+flash*.40;
@@ -59,7 +59,7 @@ export class LightingEngine {
     out.g=Math.min(1,(ambient+green+warmWhite*.91+coolWhite*.97+caustic+sparkle)*tint[1]+flash*.91);
     out.b=Math.min(1,(ambient+blue+warmWhite*.77+coolWhite+caustic+sparkle)*tint[2]+flash);
     out.scattering=(red+warmWhite+coolWhite)*.035+flash*.30;
-    out.transmission=transmission/totalWeight;out.caustic=caustic;
+    out.transmission=transmission/totalWeight;out.cloudOpening=cloudOpening/totalWeight;out.caustic=caustic;
     return out;
   }
 }
@@ -112,7 +112,9 @@ export class LightingPass {
       const direct=this.old.direct+(this.state.direct-this.old.direct)*this.blend;
       for(let col=0;col<96;col++){
         const light=this.field.sample(col/95,depth,this.sampleA);
-        const alpha=strength*Math.max(0,(light.transmission-.55)/.45)*Math.min(1,direct/.3);
+        // The safety floor belongs to material illumination, not cloud geometry:
+        // using floored transmission here turns openings into a uniform wash.
+        const alpha=strength*light.cloudOpening*Math.min(1,direct/.3);
         for(let row=0;row<64;row++){
           const i=(row*96+col)*4,fade=Math.max(0,1-row/63/.85);
           data[i]=180;data[i+1]=210;data[i+2]=195;data[i+3]=255*alpha*fade*fade;

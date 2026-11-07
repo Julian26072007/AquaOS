@@ -38,6 +38,8 @@ export function weatherAt(epoch,data,now=epoch,{current=false}={}){
     else out[key]=av===null?null:av+(bv-av)*k;
   }
   if(current&&data.current&&Math.abs(epoch-data.current.at)<30*60000){for(const key of CURRENT_FIELDS){const names={cloud_cover:'cloud',precipitation:'precipitation',rain:'rain',weather_code:'code',wind_speed_10m:'windSpeed',wind_direction_10m:'windDirection'};const name=names[key],value=data.current[name];if(typeof value==='number'&&Number.isFinite(value))out[name]=value;}out.source='current';}
+  // Retain the actual interpolation inputs for opt-in preview diagnostics.
+  out.forecast={from:a.at,to:b.at,fraction:k,cloudFrom:a.cloud??null,cloudTo:b.cloud??null};
   return out;
 }
 export function weatherLabel(w){return w.code>=95?'Storm':w.precipitation>.1?'Rain':w.cloud>85?'Overcast':w.cloud>60?'Cloudy':w.cloud>15?'Partly cloudy':'Clear';}

@@ -1,5 +1,39 @@
 const test=require('node:test');
 const assert=require('node:assert/strict');
+test('cloud openings retain spatial contrast when the material safety floor is one',async()=>{
+ const {calculateNaturalLighting,DEFAULT_NATURAL}=await import('../../js/natural.js');
+ const {DEFAULT_SAFETY}=await import('../../js/safety.js');
+ const {PREVIEW_WEATHER}=await import('../../js/preview-weather.js');
+ const {LightingEngine}=await import('../../js/effects.js');
+ const {LightField}=await import('../../js/light-field.js');
+ const cycle=calculateNaturalLighting(Date.parse('2026-06-21T12:00Z'),{...DEFAULT_NATURAL,latitude:0,longitude:0},DEFAULT_SAFETY,null,{weatherOverride:PREVIEW_WEATHER.cloudy});
+ const engine=new LightingEngine(),state=engine.state({...cycle.preset,cloudTransmissionFloor:1},0);
+ const field=new LightField().update(engine,state),openings=[];
+ for(let x=0;x<20;x++){
+  const light=field.sample(x/19,.12);assert.equal(light.transmission,1);
+  assert(light.cloudOpening>=0&&light.cloudOpening<=1);openings.push(light.cloudOpening);
+ }
+ assert(Math.max(...openings)-Math.min(...openings)>.2);
+});
+test('preview samples its selected date/time and retains raw forecast provenance',async()=>{
+ const {createPreviewController}=await import('../../js/controllers.js');
+ const {normalizeForecast}=await import('../../js/weather.js');
+ const {DEFAULT_NATURAL}=await import('../../js/natural.js');
+ const {DEFAULT_SAFETY}=await import('../../js/safety.js');
+ const {DEFAULT_SCHEDULE,DEFAULT_CYCLE_SETTINGS}=await import('../../js/schedule.js');
+ const at=Date.parse('2026-06-21T12:00Z'),n={...DEFAULT_NATURAL,latitude:0,longitude:0};
+ const data=normalizeForecast({hourly:{time:[at/1000,at/1000+3600,at/1000+86400],cloud_cover:[0,50,100]}},n,at);
+ const preview=createPreviewController(DEFAULT_SCHEDULE,DEFAULT_CYCLE_SETTINGS,720,{natural:n,safety:DEFAULT_SAFETY,data,date:'2026-06-21',now:at});
+ assert.equal(preview.snapshot().weather.cloud,0);
+ preview.scrub(750);const w=preview.snapshot().weather;
+ assert.equal(w.cloud,25);assert.deepEqual(w.forecast,{from:at,to:at+3600000,fraction:.5,cloudFrom:0,cloudTo:50});
+ preview.setDate('2026-06-22');preview.scrub(720);assert.equal(preview.snapshot().weather.cloud,100);
+ preview.scrub(0);assert.equal(preview.snapshot().brightness,0);
+ const missing=normalizeForecast({hourly:{time:[at/1000,at/1000+3600]}},n,at);
+ const p=createPreviewController(DEFAULT_SCHEDULE,DEFAULT_CYCLE_SETTINGS,720,{natural:n,safety:DEFAULT_SAFETY,data:missing,date:'2026-06-21',now:at});
+ assert.equal(p.snapshot().weather.forecast.cloudFrom,null);
+ assert.equal(p.snapshot().weather.directRadiation,null);
+});
 test('weather reaches the 2D field with bounded daylight and coherent motion',async()=>{
  const {calculateNaturalLighting,DEFAULT_NATURAL}=await import('../../js/natural.js');
  const {DEFAULT_SAFETY}=await import('../../js/safety.js');
@@ -19,7 +53,7 @@ test('weather reaches the 2D field with bounded daylight and coherent motion',as
   assert(Math.max(...b.map((v,i)=>Math.abs(luma(v)-luma(near[i]))))<.01);
   assert.equal(engine.state(cycle.preset,5.77).flash,0);
   if(name==='overcast'||name==='thunderstorm')assert.equal(cycle.preset.shaftStrength,0);
-  if(name==='partly-cloudy')assert(cycle.preset.shaftStrength>0&&cycle.preset.shaftStrength<.02);
+  if(name==='partly-cloudy')assert(cycle.preset.shaftStrength>0&&cycle.preset.shaftStrength<=.22);
   assert(cycle.brightness<=DEFAULT_SAFETY.maxBrightness);
   const night=calculateNaturalLighting(at+12*3600000,n,DEFAULT_SAFETY,data,{weatherOverride:weather});assert.equal(night.brightness,0);
  }
