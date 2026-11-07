@@ -79,3 +79,50 @@ partly-cloudy renderer measured 2.7 ms median / 4.3 ms p95 at a 354 × 280 CSS
 pixel canvas. A WebKit launch was attempted after installing the matching
 Playwright browser, but the host lacks GTK4, Graphene, HarfBuzz ICU, Manette,
 Hyphen and GLES libraries. WebKit and physical Mobile Safari remain unverified.
+
+## Radiation and diagnostic follow-up
+
+The previous correction was already merged in PR #9. The remaining gap was
+that only `shortwave_radiation` affected the target (by at most 5%); direct and
+diffuse energy were reconstructed solely from coverage. This follow-up requests
+Open-Meteo hourly `direct_radiation` and `diffuse_radiation`, preserves them
+through interpolation, cache reads and 60-second live smoothing, and uses their
+ratio in the shared Natural calculation for real and preview controllers.
+
+API reference: https://open-meteo.com/en/docs (Hourly Weather Variables).
+`cloud_cover`, `cloud_cover_low`, `cloud_cover_mid`, `cloud_cover_high` are percent;
+`direct_radiation`, `diffuse_radiation`, `shortwave_radiation` are horizontal
+irradiance in W/m², averaged over the preceding hour. Direct radiation is **not**
+direct-normal irradiance. A live request verified all seven hourly fields and
+units on 2026-11-07. The existing current fields supply total cover,
+`precipitation`, `rain` (mm), `weather_code` (WMO), `wind_speed_10m` (requested
+m/s) and `wind_direction_10m` (degrees, direction from which wind blows).
+Layer coverage and radiation remain hourly even when current total cover is used.
+
+When both radiation components are available and their sum exceeds 1 W/m²,
+diffuse fraction is diffuse / (direct + diffuse). Otherwise the explicit
+approximation is 0.4 + 0.6 × coverage². Sun altitude, calculated locally with
+SunCalc, smoothly removes direct energy near/below the horizon. The normalized
+radiance budget transfers direct energy to ambient light; cloud transmission
+modulates only direct illumination. Shafts and caustics also require direct
+energy. All three cloud layers influence procedural thickness, anchored by total
+coverage. Missing layer values display as unavailable rather than invented API
+measurements. Total irradiance still makes the existing small, safety-bounded
+adjustment to brightness; irradiance is not interpreted as LED output.
+
+With `?devWeather=1`, the existing Natural preview now includes diagnostics
+and a 144 × 72 top-down transmission map sampled from the actual renderer field
+at 4 Hz. The six existing overrides remain preview-only and preserve the
+comparison time. The diagnostic panel is absent in ordinary use.
+
+API values are weather-model forecasts/current estimates, not local aquarium
+sensor measurements. Cloud silhouettes, optical transmission, scattering,
+caustics and shafts are procedural artistic approximations, not satellite cloud
+reconstruction or calibrated radiometry. Wind drives coherent motion; the
+96 × 48 lighting field and cached 40 × 24 cloud mask remain unchanged.
+
+Follow-up validation: all five unit tests passed; the browser, lighting, field,
+schedule and Natural Chromium suites passed. Natural rendering measured 4.9 ms
+median / 7.1 ms p95 in this environment. Developer controls, map rendering,
+fixed-time condition switching, ordinary-UI absence and preview storage
+isolation are covered. Physical iPhone Safari was not tested in this session.

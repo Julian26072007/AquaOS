@@ -11,7 +11,7 @@ const {launchBrowser,testUrl}=require('./browser-helpers.cjs');const assert=requ
  assert.equal(await page.locator('#mode-natural').getAttribute('aria-pressed'),'true');
  for(const [width,height] of [[320,480],[390,664],[430,760],[667,375]]){await page.setViewportSize({width,height});assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth&&document.documentElement.scrollHeight<=innerHeight),`natural layout ${width}x${height}`);}
  await page.setViewportSize({width:390,height:740});const saved=await page.evaluate(()=>localStorage.getItem('aquaos.settings.v1'));
- await page.locator('#preview-open').click();await page.locator('#preview-date').fill('2026-06-21');await page.locator('#preview-timeline').fill('720');await page.waitForTimeout(200);await page.screenshot({path:'/tmp/aquaos-natural-preview.png',fullPage:true});
+ await page.locator('#preview-open').click();assert.equal(await page.locator('#weather-diagnostics').count(),0);await page.locator('#preview-date').fill('2026-06-21');await page.locator('#preview-timeline').fill('720');await page.waitForTimeout(200);await page.screenshot({path:'/tmp/aquaos-natural-preview.png',fullPage:true});
  await page.locator('#preview-speed').selectOption('1440');await page.locator('#preview-play').click();await page.waitForTimeout(500);await page.locator('#preview-play').click();await page.locator('#preview-now').click();const actualDate=await page.evaluate(async()=>{const {zonedParts}=await import('./js/astronomy.js');return zonedParts(Date.now(),'Europe/Vienna').date;});assert.equal(await page.locator('#preview-date').inputValue(),actualDate);await page.locator('#preview-close').click();assert.equal(await page.evaluate(()=>localStorage.getItem('aquaos.settings.v1')),saved);
  await page.reload();assert.equal(await page.locator('#mode-natural').getAttribute('aria-pressed'),'true');await page.locator('[data-preset=sunny]').click();assert.equal(await page.locator('#mode-manual').getAttribute('aria-pressed'),'true');
  // Developer-only control retains the same comparison time and leaves live state alone.
@@ -34,7 +34,7 @@ const {launchBrowser,testUrl}=require('./browser-helpers.cjs');const assert=requ
   assert.equal(await page.locator('#preview-timeline').inputValue(),'720');
   assert((await page.locator('#preview-weather').textContent()).includes('Developer simulation'));
   assert.equal(await page.locator('#preview-play').getAttribute('aria-pressed'),'false');
-  await page.waitForTimeout(100);await page.locator('#preview-scene').screenshot({path:`/tmp/aquaos-weather-${name}.png`});
+  await page.waitForTimeout(300);assert((await page.locator('#weather-diagnostics pre').textContent()).includes('cloud approximation'));assert.equal(await page.locator('#weather-diagnostics canvas').count(),1);await page.locator('#preview-scene').screenshot({path:`/tmp/aquaos-weather-${name}.png`});
  }
  assert.equal(await page.evaluate(()=>localStorage.getItem('aquaos.settings.v1')),stored);
  await page.locator('#preview-close').click();await page.locator('#preview-open').click();
