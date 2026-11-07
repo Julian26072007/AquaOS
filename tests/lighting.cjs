@@ -11,7 +11,7 @@ const assert=require('node:assert/strict');
   const {getPreset}=await import('./js/presets.js');
   const {AnimationClock}=await import('./js/timing.js');
   const engine=new LightingEngine();
-  const clouds=getPreset('clouds'),sunny=getPreset('sunny'),storm=getPreset('storm');
+  const clouds=getPreset('clouds'),sunny=getPreset('sunny'),storm={...getPreset('storm'),allowLightning:true};
   const luma=s=>(s.r+s.g+s.b)/3;
   const samples=t=>Array.from({length:120},(_,i)=>engine.sample(engine.state(clouds,t),(i%15)/14,Math.floor(i/15)/7));
   const a=samples(0),b=samples(30),near=samples(1/30);
@@ -69,7 +69,7 @@ const assert=require('node:assert/strict');
   await page.evaluate(id=>{const {renderer,getPreset}=window.lightingFixture;renderer.preset=getPreset(id);renderer.previous=renderer.preset;renderer.draw();},id);
   await page.locator('canvas').last().screenshot({path:`/tmp/aquaos-${id}.png`});
  }
- await page.evaluate(t=>{const {renderer,getPreset}=window.lightingFixture;renderer.preset=getPreset('storm');renderer.previous=renderer.preset;renderer.clock.elapsed=t;renderer.draw();},result.flashTimes[0]+.05);
+ await page.evaluate(t=>{const {renderer,getPreset}=window.lightingFixture;renderer.preset={...getPreset('storm'),allowLightning:true};renderer.previous=renderer.preset;renderer.clock.elapsed=t;renderer.draw();},result.flashTimes[0]+.05);
  await page.locator('canvas').last().screenshot({path:'/tmp/aquaos-storm-flash.png'});
  const performance=await page.evaluate(()=>{
   const {renderer,getPreset}=window.lightingFixture;renderer.preset=getPreset('clouds');renderer.previous=renderer.preset;

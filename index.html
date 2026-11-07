@@ -13,7 +13,7 @@
   <div class="shell">
     <header><a class="brand" href="./" aria-label="AquaOS home"><span class="brand-mark" aria-hidden="true">≈</span>Aqua<span>OS</span></a><button id="settings-open" class="settings-button" type="button" aria-label="Open settings" aria-haspopup="dialog"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m9 3-1 3-3 1-2 3 2 2-1 3 2 3 3-1 2 3h3l1-3 3-1 2-3-2-2 1-3-2-3-3 1-2-3Z"/><circle cx="12" cy="12" r="3"/></svg></button></header>
     <main>
-      <div class="mode-bar" role="group" aria-label="Lighting mode"><button id="mode-auto" type="button" aria-pressed="false">Automatic</button><button id="mode-manual" type="button" aria-pressed="true">Manual</button></div>
+      <div class="mode-bar" role="group" aria-label="Lighting mode"><button id="mode-auto" type="button" aria-pressed="false">Automatic</button><button id="mode-natural" type="button" aria-pressed="false">Natural</button><button id="mode-manual" type="button" aria-pressed="true">Manual</button></div>
       <section class="preview-section" aria-label="Aquarium lighting preview">
         <div class="tank"><canvas id="scene" role="img" aria-label="Simulated aquarium lighting"></canvas></div>
         <div class="now"><div><h2 id="preset-name">Sunny</h2><p id="cycle-meta" class="cycle-meta" hidden></p><p id="preset-description" class="sr-only">Bright, natural daylight.</p></div><span id="manual-status" class="active-label"><i></i> Selected</span><button id="preview-open" class="quiet-button" type="button" aria-haspopup="dialog" hidden>Preview day</button></div>
@@ -36,6 +36,31 @@
       <label class="range-label" for="day-brightness">Day brightness <output id="day-brightness-value"></output></label><input id="day-brightness" type="range" min="0" max="100" step="1">
       <label class="checkbox-label"><input id="moon-enabled" type="checkbox"> Very dim moonlight at night</label>
       <label class="range-label" for="moon-intensity">Moonlight intensity <output id="moon-intensity-value"></output></label><input id="moon-intensity" type="range" min="0" max="5" step="0.5">
+      <details id="natural-advanced"><summary>Natural mode · location &amp; cycle</summary>
+        <p class="simulation-note">Choose the aquarium location; GPS is never required.</p>
+        <div class="location-search"><label class="sr-only" for="location-search">Search city</label><input id="location-search" type="search" placeholder="City or place"><button id="location-find" class="quiet-button" type="button">Find</button></div>
+        <label class="sr-only" for="location-results">Location results</label><select id="location-results" hidden></select><p id="location-message" class="simulation-note" role="status"></p>
+        <div class="settings-grid">
+          <label>Location label<input id="n-location" type="text" maxlength="100"></label><label>IANA timezone<input id="n-timezone" type="text" placeholder="Europe/Vienna" required></label>
+          <label>Latitude<input id="n-lat" type="number" min="-90" max="90" step="any"></label><label>Longitude<input id="n-lon" type="number" min="-180" max="180" step="any"></label>
+          <label>Total light budget (h)<input id="n-photo" type="number" min="1" max="16" step="0.25" required></label><label>Schedule offset (min)<input id="n-offset" type="number" min="-360" max="360" step="1" required></label>
+          <label>Sunrise ramp (min)<input id="n-rise" type="number" min="5" max="240" required></label><label>Sunset ramp (min)<input id="n-set" type="number" min="5" max="240" required></label>
+          <label>Day level (%)<input id="n-bright" type="number" min="0" max="100" required></label><label>Seasonal influence (%)<input id="n-season" type="number" min="0" max="100" required></label>
+          <label>Pre-dawn twilight (min)<input id="n-twilight" type="number" min="0" max="30" required></label><label>Moonlight max (%)<input id="n-moon" type="number" min="0" max="1" step="0.1" required></label>
+        </div>
+        <label class="checkbox-label"><input id="n-moon-enabled" type="checkbox"> Astronomical moonlight (optional)</label>
+        <label class="checkbox-label"><input id="n-moon-cloud" type="checkbox"> Attenuate moonlight with clouds</label>
+        <p class="simulation-note">Sun times center the capped aquarium window; aquarium dawn/dusk may differ from outdoors. Moonlight reserves part of the same budget and requires dark skies and a visible moon. Twilight is separate.</p>
+      </details>
+      <details id="safety-advanced"><summary>Natural mode · aquarium limits</summary>
+        <div class="settings-grid">
+          <label>Maximum light budget (h)<input id="s-photo" type="number" min="1" max="16" step="0.25" required></label><label>Minimum darkness (h)<input id="s-dark" type="number" min="8" max="23" step="0.25" required></label>
+          <label>Maximum output (%)<input id="s-bright" type="number" min="0" max="100" required></label><label>Weather output floor (%)<input id="s-weather" type="number" min="50" max="100" required></label>
+          <label>Change limit (%/min)<input id="s-rate" type="number" min="0.1" max="20" step="0.1" required></label><label>Moonlight cap (%)<input id="s-moon" type="number" min="0" max="1" step="0.1" required></label>
+        </div>
+        <p class="simulation-note">Levels are controller output, not measured lux. Even 1% is not equivalent to natural moonlight. Match these limits to your fish and plants.</p>
+      </details>
+      <p class="simulation-note"><a href="https://open-meteo.com/" target="_blank" rel="noopener">Weather by Open-Meteo</a> · CC BY 4.0. Astronomy is calculated offline when needed.</p>
       <p id="schedule-error" class="form-error" role="alert"></p>
       <button class="quiet-button save-button" type="submit">Save schedule</button>
     </form>
@@ -44,6 +69,7 @@
   <dialog id="preview-dialog" class="day-preview" aria-labelledby="preview-title" aria-describedby="preview-notice">
     <div class="dialog-heading"><h2 id="preview-title">Preview day</h2><button id="preview-close" class="settings-button" type="button" aria-label="Close day preview">✕</button></div>
     <p id="preview-notice" class="simulation-note">Simulation only · your real lighting is unaffected.</p>
+    <div id="preview-natural-row" hidden><label for="preview-date">Aquarium date</label><input id="preview-date" type="date"><p id="preview-weather" class="simulation-note"></p></div>
     <div class="tank preview-tank"><canvas id="preview-scene" role="img" aria-label="Simulated daily lighting cycle"></canvas></div>
     <div class="preview-readout"><output id="preview-time" aria-live="off">00:00</output><span id="preview-phase">Night</span></div>
     <label class="sr-only" for="preview-timeline">Preview time of day</label><input id="preview-timeline" type="range" min="0" max="1440" step="1" value="0">

@@ -3,9 +3,15 @@ import {createStore} from './state.js';
 import {AquariumRenderer} from './renderer.js';
 import {createRealLightingController,createPreviewController} from './controllers.js';
 import {formatTime,localMinutes} from './schedule.js';
+import {createWeatherProvider,searchLocations,weatherLabel,locationKey} from './weather.js';
+import {zonedParts} from './astronomy.js';
 const $=id=>document.getElementById(id);
 let storage;try{storage=window.localStorage;}catch{/* Storage may be blocked. */}
-const store=createStore(storage),real=createRealLightingController(store);
+const store=createStore(storage);
+const weatherProvider=createWeatherProvider({storage,onChange:()=>real.sample()});
+const real=createRealLightingController(store,()=>new Date(),()=>weatherProvider.snapshot());
+function refreshWeather(force=false){const n=store.getState().natural;if(n.latitude!==null&&n.longitude!==null)weatherProvider.refresh(n,{force});}
+
 const renderer=new AquariumRenderer($('scene'),real.sample().preset);
 for(const p of presets){
   const button=document.createElement('button');button.type='button';button.className='preset';button.dataset.preset=p.id;button.style.setProperty('--tone',p.tone);button.setAttribute('aria-pressed','false');
@@ -16,32 +22,44 @@ for(const p of presets){
 }
 function text(id,value){if($(id).textContent!==value)$(id).textContent=value;}
 function renderReal(output){
-  const automatic=output.mode==='automatic',p=output.preset;
+  const natural=output.mode==='natural',automatic=output.mode!=='manual',p=output.preset;
   if(automatic)renderer.setLighting(p);else if(renderer.preset.id!==p.id)renderer.setPreset(p);
   text('preset-name',p.name);text('preset-description',p.description);
-  $('mode-auto').setAttribute('aria-pressed',String(automatic));$('mode-manual').setAttribute('aria-pressed',String(!automatic));
+  $('mode-auto').setAttribute('aria-pressed',String(output.mode==='automatic'));$('mode-natural').setAttribute('aria-pressed',String(natural));$('mode-manual').setAttribute('aria-pressed',String(!automatic));
   $('preview-open').hidden=!automatic;$('manual-status').hidden=automatic;$('cycle-meta').hidden=!automatic;
-  if(automatic)text('cycle-meta',`${output.cycle.brightness===0?'Lights off · ':''}${output.cycle.nextPhase} at ${formatTime(output.cycle.nextTransition)}`);
+  if(automatic&&!natural)text('cycle-meta',`${output.cycle.brightness===0?'Lights off · ':''}${output.cycle.nextPhase} at ${formatTime(output.cycle.nextTransition)}`);
+  if(natural){
+    const cycle=output.cycle,sky=cycle.nextAstronomy;
+    const time=sky.at?formatTime(zonedParts(sky.at,store.getState().natural.timezone).minutes):'unavailable';
+    const source=cycle.weather.source==='estimated'?'Estimated clouds':`${weatherLabel(cycle.weather)}${cycle.weatherStatus==='offline'?' (cached)':''}`;
+    text('cycle-meta',`${cycle.policyReason?'Dark period · ':cycle.ramping?'Ramping · ':''}${source} · Sky ${sky.label.toLowerCase()} ${time}${store.getState().natural.moonEnabled&&['Moonlight','Night'].includes(cycle.phase)?' · '+cycle.astronomy.moonLabel+(cycle.astronomy.moonAbove?'':' below horizon'):''}`);
+  }
   $('presets').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(!automatic&&b.dataset.preset===p.id)));
 }
 // The only future hardware subscription point is real.subscribeRealOutput().
 // No adapter is installed. Rendering and preview actions never emit commands.
 real.subscribeRealOutput(renderReal);
-store.subscribe(()=>{real.sample();text('announcement',`${store.getState().mode==='automatic'?'Automatic cycle':getPreset(store.getState().presetId).name} selected.`);});
+store.subscribe(()=>{real.sample();refreshWeather();text('announcement',`${store.getState().mode==='manual'?getPreset(store.getState().presetId).name:store.getState().mode==='natural'?'Natural mode':'Automatic cycle'} selected.`);});
 $('mode-auto').addEventListener('click',()=>store.setMode('automatic'));
 $('mode-manual').addEventListener('click',()=>store.setMode('manual'));
-real.sample();setInterval(()=>real.sample(),250);
+real.sample();refreshWeather();setInterval(()=>real.sample(),250);setInterval(()=>refreshWeather(true),15*60*1000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)real.sample();});
 
 function dismissOnBackdrop(dialog){dialog.addEventListener('click',event=>{const r=dialog.getBoundingClientRect();if(event.target===dialog&&(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom))dialog.close();});}
+let activateNaturalAfterSave=false;
+$('mode-natural').addEventListener('click',()=>{if(store.getState().natural.latitude===null){$('settings-open').click();activateNaturalAfterSave=true;$('natural-advanced').open=true;text('location-message','Choose the aquarium location before enabling Natural mode.');}else store.setMode('natural');});
 const settingsDialog=$('settings-dialog');dismissOnBackdrop(settingsDialog);
 function updateSettingLabels(){text('day-brightness-value',`${$('day-brightness').value}%`);text('moon-intensity-value',`${$('moon-intensity').value}%`);$('moon-intensity').disabled=!$('moon-enabled').checked;}
 $('settings-open').addEventListener('click',()=>{
-  const {schedule:s,cycleSettings:c}=store.getState();
+  const {schedule:s,cycleSettings:c,natural:n,safety:p}=store.getState();
   $('sunrise-start').value=formatTime(s.sunriseStart);$('sunset-start').value=formatTime(s.sunsetStart);
   $('sunrise-duration').value=s.sunriseDuration;$('sunset-duration').value=s.sunsetDuration;
   $('day-brightness').value=c.dayBrightness*100;$('moon-enabled').checked=c.moonlightEnabled;$('moon-intensity').value=c.moonlightIntensity*100;
-  text('schedule-error','');updateSettingLabels();settingsDialog.showModal();
+  activateNaturalAfterSave=false;
+  const values={'n-location':n.locationName,'n-lat':n.latitude??'','n-lon':n.longitude??'','n-timezone':n.timezone,'n-photo':n.photoperiodHours,'n-offset':n.offsetMinutes,'n-rise':n.sunriseMinutes,'n-set':n.sunsetMinutes,'n-bright':n.dayBrightness*100,'n-season':n.seasonalStrength*100,'n-twilight':n.twilightMinutes,'n-moon':n.moonCap*100,'s-photo':p.maxPhotoperiodHours,'s-dark':p.minDarkHours,'s-bright':p.maxBrightness*100,'s-weather':p.minWeatherFactor*100,'s-rate':p.maxChangePerMinute*100,'s-moon':p.moonlightCap*100};
+  for(const [id,value] of Object.entries(values))$(id).value=value;
+  $('n-moon-enabled').checked=n.moonEnabled;$('n-moon-cloud').checked=n.moonCloudAttenuation;
+  text('location-message','');text('schedule-error','');updateSettingLabels();settingsDialog.showModal();
 });
 $('settings-close').addEventListener('click',()=>settingsDialog.close());
 for(const id of ['day-brightness','moon-enabled','moon-intensity'])$(id).addEventListener('input',updateSettingLabels);
@@ -49,12 +67,27 @@ const parseTime=value=>{const [h,m]=value.split(':').map(Number);return h*60+m;}
 $('schedule-form').addEventListener('submit',event=>{
   event.preventDefault();
   try{
-    store.saveSchedule({sunriseStart:parseTime($('sunrise-start').value),sunriseDuration:Number($('sunrise-duration').value),sunsetStart:parseTime($('sunset-start').value),sunsetDuration:Number($('sunset-duration').value)},
-      {dayBrightness:Number($('day-brightness').value)/100,moonlightEnabled:$('moon-enabled').checked,moonlightIntensity:Number($('moon-intensity').value)/100});
+    const value=id=>Number($(id).value),optional=id=>$(id).value.trim()===''?null:value(id);
+    const natural={locationName:$('n-location').value.trim(),latitude:optional('n-lat'),longitude:optional('n-lon'),timezone:$('n-timezone').value.trim(),photoperiodHours:value('n-photo'),offsetMinutes:value('n-offset'),sunriseMinutes:value('n-rise'),sunsetMinutes:value('n-set'),dayBrightness:value('n-bright')/100,seasonalStrength:value('n-season')/100,moonEnabled:$('n-moon-enabled').checked,moonCap:value('n-moon')/100,moonCloudAttenuation:$('n-moon-cloud').checked,twilightMinutes:value('n-twilight')};
+    const safety={maxPhotoperiodHours:value('s-photo'),maxBrightness:value('s-bright')/100,minDarkHours:value('s-dark'),minWeatherFactor:value('s-weather')/100,maxChangePerMinute:value('s-rate')/100,moonlightCap:value('s-moon')/100};
+    if(activateNaturalAfterSave&&natural.latitude===null)throw new Error('Choose the aquarium location.');
+    store.saveConfiguration({sunriseStart:parseTime($('sunrise-start').value),sunriseDuration:Number($('sunrise-duration').value),sunsetStart:parseTime($('sunset-start').value),sunsetDuration:Number($('sunset-duration').value)},
+      {dayBrightness:Number($('day-brightness').value)/100,moonlightEnabled:$('moon-enabled').checked,moonlightIntensity:Number($('moon-intensity').value)/100},natural,safety);
+    if(activateNaturalAfterSave)store.setMode('natural');
     settingsDialog.close();text('announcement','Schedule saved.');
   }catch(error){text('schedule-error',error.message);}
 });
 
+let searchResults=[];
+$('location-find').addEventListener('click',async()=>{
+  const name=$('location-search').value.trim();if(name.length<2){text('location-message','Enter at least two characters.');return;}
+  $('location-find').disabled=true;
+  try{searchResults=await searchLocations(name);$('location-results').replaceChildren(new Option('Choose a location…',''));for(const [i,r] of searchResults.entries())$('location-results').add(new Option(`${r.name}, ${r.admin1||r.country||''} · ${r.country||''}`,String(i)));$('location-results').hidden=!searchResults.length;text('location-message',searchResults.length?'Choose the aquarium location.':'No locations found; enter coordinates manually.');}
+  catch(error){text('location-message',error.message);}finally{$('location-find').disabled=false;}
+});
+function applyLocation(r){$('n-location').value=`${r.name}, ${r.country||''}`.slice(0,100);$('n-lat').value=r.latitude;$('n-lon').value=r.longitude;$('n-timezone').value=r.timezone||'';}
+$('location-search').addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();$('location-find').click();}});
+$('location-results').addEventListener('change',()=>{if($('location-results').value==='')return;const r=searchResults[Number($('location-results').value)];if(r)applyLocation(r);});
 // Preview owns a separate controller, renderer and playback timestamp. It only
 // copies schedule configuration from the store and cannot write it or real time.
 const previewDialog=$('preview-dialog');dismissOnBackdrop(previewDialog);
@@ -62,14 +95,18 @@ let preview=null,previewRenderer=null,previewFrame=0,previewLast=null;
 function renderPreview(){
   const state=preview.snapshot();previewRenderer.setLighting(state.preset);
   $('preview-timeline').value=state.minutes;$('preview-timeline').setAttribute('aria-valuetext',`${formatTime(state.minutes)}, ${state.phase}`);
-  text('preview-time',formatTime(state.minutes));text('preview-phase',state.phase);
+  text('preview-time',formatTime(state.minutes));text('preview-phase',state.phase+(state.astronomy&&state.phase==='Moonlight'?' · '+state.astronomy.moonLabel:''));
+  if(state.weather)text('preview-weather',`${weatherLabel(state.weather)} · ${state.weather.source==='estimated'?'Estimated weather':'Forecast'}${state.phase==='Night'&&state.moonEnabled?' · '+state.astronomy.moonLabel:''}`);
   text('preview-play',state.playing?'Pause':'Play');$('preview-play').setAttribute('aria-pressed',String(state.playing));
 }
 function previewTick(now){
   if(preview.snapshot().playing){if(previewLast!==null)preview.advance((now-previewLast)/1000);renderPreview();}previewLast=now;previewFrame=requestAnimationFrame(previewTick);
 }
 $('preview-open').addEventListener('click',()=>{
-  const {schedule,cycleSettings}=store.getState();preview=createPreviewController(schedule,cycleSettings);
+  const {schedule,cycleSettings,mode,natural,safety}=store.getState(),at=Date.now(),zoned=zonedParts(at,natural.timezone);
+  const naturalMode=mode==='natural',data=weatherProvider.snapshot().data;
+  preview=createPreviewController(schedule,cycleSettings,naturalMode?zoned.minutes:localMinutes(new Date()),naturalMode?{natural,safety,data:data?.key===locationKey(natural)?data:null,date:zoned.date,now:at}:null);
+  $('preview-natural-row').hidden=!naturalMode;$('preview-date').value=zoned.date;
   previewDialog.showModal();renderer.setSuspended(true);
   previewRenderer=new AquariumRenderer($('preview-scene'),preview.snapshot().preset);previewRenderer.scenery=renderer.scenery;
   $('preview-speed').value='360';previewLast=null;renderPreview();previewFrame=requestAnimationFrame(previewTick);
@@ -79,5 +116,6 @@ previewDialog.addEventListener('close',()=>{cancelAnimationFrame(previewFrame);p
 $('preview-timeline').addEventListener('input',()=>{preview.scrub(Number($('preview-timeline').value));renderPreview();});
 $('preview-play').addEventListener('click',()=>{preview.setPlaying(!preview.snapshot().playing);previewLast=null;renderPreview();});
 $('preview-speed').addEventListener('change',()=>{preview.setSpeed(Number($('preview-speed').value));previewLast=null;});
-$('preview-now').addEventListener('click',()=>{preview.scrub(localMinutes(new Date()));previewLast=null;renderPreview();});
+$('preview-now').addEventListener('click',()=>{preview.resetNow();$('preview-date').value=preview.snapshot().date||'';previewLast=null;renderPreview();});
+$('preview-date').addEventListener('change',()=>{try{preview.setDate($('preview-date').value);renderPreview();}catch{$('preview-date').value=preview.snapshot().date;}});
 document.addEventListener('visibilitychange',()=>{previewLast=null;});
