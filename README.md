@@ -18,7 +18,10 @@ Open http://localhost:8000. Deploy the repository root through GitHub Pages (Set
 - `js/app.js`: preset buttons and UI wiring.
 - `js/presets.js`: immutable preset definitions and intent-level effect parameters.
 - `js/state.js`: validated selection, subscriptions and versioned local storage; works when storage is blocked.
-- `js/effects.js`: deterministic lighting samples, independent of rendering and hardware.
+- `js/effects.js`: reusable lighting state/sampling and a low-resolution illumination/scattering pass applied to all scene materials.
+- `js/noise.js`, `js/clouds.js`: cached noise lattice, layered fBm, smooth cloud transmittance and slow coverage variation.
+- `js/caustics.js`: independent, warped refractive highlights, attenuated by cloud transmittance.
+- `js/timing.js`: timestamp-based visible animation clock and deterministic irregular lightning events.
 - `js/scenery.js`: randomized per-visit aquascape, three plant varieties, rocks, schooling and independent fish, and rising bubbles. Geometry stays stable on resize and preset changes; fish proportions follow the shorter canvas edge.
 - `js/renderer.js`: responsive Canvas scene, 30fps cap, DPR capped at 2, hidden-tab suspension and live reduced-motion support. Reduced motion renders a still scene and disables lightning.
 - `js/hardware.js`: simulation-only adapter contract. No network commands or real device control.
@@ -32,9 +35,20 @@ With the server running and Playwright available:
 
 ```sh
 node tests/browser.cjs
+node tests/lighting.cjs
 ```
 
+The default test URL is `http://127.0.0.1:8000/aquaos/` for the workspace parent server. When serving this repository root directly, prefix the commands with `TEST_URL=http://127.0.0.1:8000/`. Set `CHROMIUM_PATH` if Chromium is installed elsewhere.
+
 Tests exercise every preset, mobile widths, keyboard input, persistence, invalid/blocked storage, reduced motion, project-path hosting and browser errors. Chromium mobile emulation is useful but does not replace testing on a physical iPhone in Safari.
+
+## Lighting model
+
+The UI and aquarium artwork are unchanged. A shared 96×64 radiance map modulates the completed scene, so fish, foliage, water and substrate receive the same light. Stable ambient illumination remains under clouds; directional sunlight is attenuated with depth and two large-scale cloud fields. Each field uses three smoothly interpolated noise octaves over cached lattice values. No circles, triangle beams, animated strips or per-frame randomness are used for cloud shadows. Dominant cloud structures cross the tank in approximately 85 seconds; a second layer drifts more slowly, with a slower coverage envelope. The underlying lattice is periodic only over hours of travel.
+
+Independent noise ridges create subtle water caustics. Their energy falls with blocked sunlight. A low-energy scattering pass adds water depth without cones. Sunrise increases asymptotically over about 90 seconds of visible simulation time, sunset decreases over about 100 seconds; both settle without an obvious loop. Storm has irregularly spaced, sometimes paired global flashes. Moonlight stays cool and dim; Rainbow gently cycles color and Sparkle uses low-amplitude highlights. All animation shares elapsed visible time, so dropped frames do not slow cloud travel. Hidden tabs pause the clock; reduced motion produces a still frame and no lightning.
+
+The map and image buffers are reused, samples avoid per-frame object churn, and Canvas interpolates the low-resolution maps to the DPR-capped output. No full-resolution CPU pixel loop is used. See [lighting validation](docs/lighting-validation.md) for time-separated Clouds captures and measured limitations.
 
 ## Hardware boundary and next steps
 
