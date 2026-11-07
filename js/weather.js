@@ -1,7 +1,7 @@
 import {zonedParts} from './astronomy.js';
 export const WEATHER_TTL=15*60*1000,MAX_WEATHER_AGE=24*60*60*1000;
 export const CURRENT_FIELDS=['cloud_cover','precipitation','rain','weather_code','wind_speed_10m','wind_direction_10m'];
-export const HOURLY_FIELDS=[...CURRENT_FIELDS,'cloud_cover_low','cloud_cover_mid','cloud_cover_high','shortwave_radiation'];
+export const HOURLY_FIELDS=[...CURRENT_FIELDS,'cloud_cover_low','cloud_cover_mid','cloud_cover_high','shortwave_radiation','direct_radiation','diffuse_radiation'];
 export const DAILY_FIELDS=['sunrise','sunset','moonrise','moonset','moon_phase'];
 export function locationKey(l){return JSON.stringify([l.latitude,l.longitude,l.timezone]);}
 export function forecastUrl(l){
@@ -11,7 +11,7 @@ export function forecastUrl(l){
 const number=(v,min,max)=>typeof v==='number'&&Number.isFinite(v)?Math.max(min,Math.min(max,v)):null;
 function weatherRow(block,index=null){
   const value=key=>index===null?block?.[key]:block?.[key]?.[index];
-  return {cloud:number(value('cloud_cover'),0,100),low:number(value('cloud_cover_low'),0,100),mid:number(value('cloud_cover_mid'),0,100),high:number(value('cloud_cover_high'),0,100),rain:number(value('rain'),0,300),precipitation:number(value('precipitation'),0,300),code:number(value('weather_code'),0,99),windSpeed:number(value('wind_speed_10m'),0,100),windDirection:number(value('wind_direction_10m'),0,360),radiation:number(value('shortwave_radiation'),0,1500)};
+  return {cloud:number(value('cloud_cover'),0,100),low:number(value('cloud_cover_low'),0,100),mid:number(value('cloud_cover_mid'),0,100),high:number(value('cloud_cover_high'),0,100),rain:number(value('rain'),0,300),precipitation:number(value('precipitation'),0,300),code:number(value('weather_code'),0,99),windSpeed:number(value('wind_speed_10m'),0,100),windDirection:number(value('wind_direction_10m'),0,360),radiation:number(value('shortwave_radiation'),0,1500),directRadiation:number(value('direct_radiation'),0,1500),diffuseRadiation:number(value('diffuse_radiation'),0,1500)};
 }
 export function normalizeForecast(raw,location,fetchedAt){
   if(!Array.isArray(raw?.hourly?.time)||raw.hourly.time.length<2)throw new Error('Weather forecast has no hourly timeline');
@@ -23,7 +23,7 @@ export function normalizeForecast(raw,location,fetchedAt){
   });
   return {schema:1,key:locationKey(location),fetchedAt,hourly,daily,current:Number.isFinite(raw.current?.time)?{at:raw.current.time*1000,...weatherRow(raw.current)}:null};
 }
-export const FALLBACK_WEATHER=Object.freeze({cloud:40,low:30,mid:20,high:20,rain:0,precipitation:0,code:null,windSpeed:2,windDirection:250,radiation:null,source:'estimated'});
+export const FALLBACK_WEATHER=Object.freeze({cloud:40,low:30,mid:20,high:20,rain:0,precipitation:0,code:null,windSpeed:2,windDirection:250,radiation:null,directRadiation:null,diffuseRadiation:null,source:'estimated'});
 export function weatherAt(epoch,data,now=epoch,{current=false}={}){
   if(!data||now-data.fetchedAt>MAX_WEATHER_AGE||data.fetchedAt>now+3600000)return {...FALLBACK_WEATHER};
   const rows=data.hourly;
@@ -32,7 +32,7 @@ export function weatherAt(epoch,data,now=epoch,{current=false}={}){
   const a=rows[lo],b=rows[hi],f=Math.max(0,Math.min(1,(epoch-a.at)/(b.at-a.at))),k=f*f*(3-2*f),out={source:'forecast'};
   for(const key of Object.keys(FALLBACK_WEATHER).filter(k=>k!=='source')){
     const valid=v=>typeof v==='number'&&Number.isFinite(v);
-    const av=valid(a[key])?a[key]:valid(b[key])?b[key]:FALLBACK_WEATHER[key],bv=valid(b[key])?b[key]:valid(a[key])?a[key]:FALLBACK_WEATHER[key];
+    const av=valid(a[key])?a[key]:valid(b[key])?b[key]:(['low','mid','high'].includes(key)?null:FALLBACK_WEATHER[key]),bv=valid(b[key])?b[key]:valid(a[key])?a[key]:(['low','mid','high'].includes(key)?null:FALLBACK_WEATHER[key]);
     if(key==='code')out[key]=k<.5?av:bv;
     else if(key==='windDirection')out[key]=(av+(((bv-av+540)%360)-180)*k+360)%360;
     else out[key]=av===null?null:av+(bv-av)*k;
@@ -88,8 +88,8 @@ export async function searchLocations(name,fetcher=fetch){
 export function smoothWeather(previous,target,seconds){
   if(!previous)return {...target};
   const k=1-Math.exp(-Math.max(0,Math.min(5,seconds))/60),out={...target};
-  for(const key of ['cloud','low','mid','high','rain','precipitation','windSpeed','windDirection','radiation']){
-    const a=previous[key],b=target[key];if(a===null||b===null)continue;
+  for(const key of ['cloud','low','mid','high','rain','precipitation','windSpeed','windDirection','radiation','directRadiation','diffuseRadiation']){
+    const a=previous[key],b=target[key];if(!Number.isFinite(a)||!Number.isFinite(b))continue;
     out[key]=key==='windDirection'?(a+(((b-a+540)%360)-180)*k+360)%360:a+(b-a)*k;
   }
   return out;

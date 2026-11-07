@@ -46,3 +46,29 @@ test('weather override remains inside preview and hardware gates reject it',asyn
  assert.throws(()=>preview.setWeatherOverride('invalid'));
  preview.setPlaying(true);preview.setSpeed(1440);preview.advance(5);assert.equal(preview.snapshot().minutes,840);
 });
+
+test('documented horizontal radiation survives parsing, interpolation and shared lighting',async()=>{
+ const {forecastUrl,normalizeForecast,weatherAt,smoothWeather}=await import('../../js/weather.js');
+ const {weatherLightingModel,calculateNaturalLighting,DEFAULT_NATURAL}=await import('../../js/natural.js');
+ const {DEFAULT_SAFETY}=await import('../../js/safety.js');
+ const n={...DEFAULT_NATURAL,latitude:0,longitude:0},at=Date.parse('2026-06-21T12:00Z');
+ const url=new URL(forecastUrl(n));
+ for(const field of ['direct_radiation','diffuse_radiation','cloud_cover_low','cloud_cover_mid','cloud_cover_high'])assert(url.searchParams.get('hourly').split(',').includes(field));
+ assert.equal(url.searchParams.get('wind_speed_unit'),'ms');
+ const raw={hourly:{time:[at/1000-3600,at/1000+3600],cloud_cover:[45,45],direct_radiation:[600,0],diffuse_radiation:[100,300]}};
+ const data=normalizeForecast(raw,n,at),w=weatherAt(at,data,at);
+ assert.equal(w.directRadiation,300);assert.equal(w.diffuseRadiation,200);assert.equal(w.low,null);
+ const direct=weatherLightingModel({...w,directRadiation:600,diffuseRadiation:100},1);
+ const diffuse=weatherLightingModel({...w,directRadiation:0,diffuseRadiation:300},1);
+ assert(direct.direct>diffuse.direct);assert(diffuse.ambient>direct.ambient);assert.equal(diffuse.direct,0);
+ assert.equal(direct.radiationSource,'forecast radiation');
+ assert.equal(weatherLightingModel({...w,directRadiation:null},1).radiationSource,'cloud approximation');
+ assert.equal(weatherLightingModel({...w,directRadiation:0,diffuseRadiation:0},1).radiationSource,'cloud approximation');
+ assert.equal(weatherLightingModel(w,-.1).direct,0);
+ const cycle=calculateNaturalLighting(at,n,DEFAULT_SAFETY,data);
+ assert.equal(cycle.weatherLighting.radiationSource,'forecast radiation');
+ assert.equal(cycle.preset.lighting.direct,cycle.weatherLighting.directIllumination);
+ const smoothed=smoothWeather({...w,directRadiation:0},w,1);
+ assert(smoothed.directRadiation>0&&smoothed.directRadiation<10);
+ assert.equal(smoothWeather({cloud:40},w,1).directRadiation,300);
+});

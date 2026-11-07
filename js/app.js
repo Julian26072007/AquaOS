@@ -91,7 +91,7 @@ $('location-results').addEventListener('change',()=>{if($('location-results').va
 // Preview owns a separate controller, renderer and playback timestamp. It only
 // copies schedule configuration from the store and cannot write it or real time.
 const previewDialog=$('preview-dialog');dismissOnBackdrop(previewDialog);
-let preview=null,previewRenderer=null,previewFrame=0,previewLast=null;
+let preview=null,previewRenderer=null,previewFrame=0,previewLast=null,previewDiagnosticsAt=0;
 function renderPreview(){
   const state=preview.snapshot();previewRenderer.setLighting(state.preset);
   $('preview-timeline').value=state.minutes;$('preview-timeline').setAttribute('aria-valuetext',`${formatTime(state.minutes)}, ${state.phase}`);
@@ -99,8 +99,28 @@ function renderPreview(){
   if(state.weather)text('preview-weather',`${weatherLabel(state.weather)} · ${state.weather.source==='simulation'?'Developer simulation':state.weather.source==='estimated'?'Estimated weather':'Forecast'}${state.phase==='Night'&&state.moonEnabled?' · '+state.astronomy.moonLabel:''}`);
   text('preview-play',state.playing?'Pause':'Play');$('preview-play').setAttribute('aria-pressed',String(state.playing));
 }
+function renderWeatherDiagnostics(){
+  const panel=$('weather-diagnostics');if(!panel||!previewRenderer)return;
+  const state=preview.snapshot(),w=state.weather,m=state.weatherLighting;
+  const value=(v,unit='')=>Number.isFinite(v)?`${v.toFixed(1)}${unit}`:'unavailable';
+  panel.querySelector('pre').textContent=[
+    `${weatherLabel(w)} · ${w.source} · ${m.radiationSource}`,
+    `Cloud ${value(w.cloud,'%')} · low ${value(w.low,'%')} / mid ${value(w.mid,'%')} / high ${value(w.high,'%')}`,
+    `Direct ${value(w.directRadiation,' W/m²')} · diffuse ${value(w.diffuseRadiation,' W/m²')}`,
+    `Wind ${value(w.windSpeed,' m/s')} from ${value(w.windDirection,'°')}`,
+    `Sun altitude ${value(state.astronomy.sunAltitude*180/Math.PI,'°')}`,
+    `Calculated diffuse ${value(m.diffuseIllumination)} · direct ${value(m.directIllumination)} · shadow ${value(m.shadowStrength)}`,
+    'Top-down transmission: left/right · rear (top) / front (bottom)',
+  ].join('\n');
+  const canvas=panel.querySelector('canvas'),ctx=canvas.getContext('2d'),field=previewRenderer.lighting.field;
+  // Reuse the renderer field, including its front/rear source projection.
+  for(let y=0;y<24;y++)for(let x=0;x<48;x++){
+    const v=Math.round(field.sample(x/47,y/23).transmission*255);
+    ctx.fillStyle=`rgb(${v},${v},${v})`;ctx.fillRect(x*3,y*3,3,3);
+  }
+}
 function previewTick(now){
-  if(preview.snapshot().playing){if(previewLast!==null)preview.advance((now-previewLast)/1000);renderPreview();}previewLast=now;previewFrame=requestAnimationFrame(previewTick);
+  if(preview.snapshot().playing){if(previewLast!==null)preview.advance((now-previewLast)/1000);renderPreview();}if($('weather-diagnostics')&&(previewLast===null||!previewDiagnosticsAt||now-previewDiagnosticsAt>250)){renderWeatherDiagnostics();previewDiagnosticsAt=now;}previewLast=now;previewFrame=requestAnimationFrame(previewTick);
 }
 $('preview-open').addEventListener('click',()=>{
   const {schedule,cycleSettings,mode,natural,safety}=store.getState(),at=Date.now(),zoned=zonedParts(at,natural.timezone);
@@ -114,13 +134,18 @@ $('preview-open').addEventListener('click',()=>{
     for(const [value,name] of [['','Live forecast'],['clear','Clear'],['partly-cloudy','Partly cloudy'],['cloudy','Cloudy'],['overcast','Overcast'],['rain','Rain'],['thunderstorm','Thunderstorm']])select.add(new Option(name,value));
     select.addEventListener('change',()=>{preview.setPlaying(false);preview.setWeatherOverride(select.value||null);renderPreview();});
     label.append(select);$('preview-natural-row').append(label);
+    const panel=document.createElement('details');panel.id='weather-diagnostics';panel.open=true;panel.style.cssText='max-height:210px;overflow:auto;margin-top:12px';
+    const summary=document.createElement('summary');summary.textContent='Weather diagnostics (preview only)';
+    const readings=document.createElement('pre');readings.style.cssText='white-space:pre-wrap;font-size:11px';
+    const map=document.createElement('canvas');map.width=144;map.height=72;map.style.cssText='position:static;width:144px;height:72px';map.setAttribute('aria-label','Top-down cloud transmission map');
+    panel.append(summary,readings,map);$('preview-natural-row').after(panel);
   }
   previewDialog.showModal();renderer.setSuspended(true);
   previewRenderer=new AquariumRenderer($('preview-scene'),preview.snapshot().preset);previewRenderer.scenery=renderer.scenery;
   $('preview-speed').value='360';previewLast=null;renderPreview();previewFrame=requestAnimationFrame(previewTick);
 });
 $('preview-close').addEventListener('click',()=>previewDialog.close());
-previewDialog.addEventListener('close',()=>{$('developer-weather')?.remove();cancelAnimationFrame(previewFrame);previewRenderer?.destroy();previewRenderer=null;preview=null;previewLast=null;renderer.setSuspended(false);});
+previewDialog.addEventListener('close',()=>{$('developer-weather')?.remove();$('weather-diagnostics')?.remove();cancelAnimationFrame(previewFrame);previewRenderer?.destroy();previewRenderer=null;preview=null;previewLast=null;renderer.setSuspended(false);});
 $('preview-timeline').addEventListener('input',()=>{preview.scrub(Number($('preview-timeline').value));renderPreview();});
 $('preview-play').addEventListener('click',()=>{preview.setPlaying(!preview.snapshot().playing);previewLast=null;renderPreview();});
 $('preview-speed').addEventListener('change',()=>{preview.setSpeed(Number($('preview-speed').value));previewLast=null;});
