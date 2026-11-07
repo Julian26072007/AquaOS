@@ -1,0 +1,48 @@
+const test=require('node:test');
+const assert=require('node:assert/strict');
+test('weather reaches the 2D field with bounded daylight and coherent motion',async()=>{
+ const {calculateNaturalLighting,DEFAULT_NATURAL}=await import('../../js/natural.js');
+ const {DEFAULT_SAFETY}=await import('../../js/safety.js');
+ const {PREVIEW_WEATHER}=await import('../../js/preview-weather.js');
+ const {LightingEngine}=await import('../../js/effects.js');
+ const {normalizeForecast}=await import('../../js/weather.js');
+ const n={...DEFAULT_NATURAL,latitude:0,longitude:0},at=Date.parse('2026-06-21T12:00Z');
+ const results={};
+ for(const [name,weather] of Object.entries(PREVIEW_WEATHER)){
+  const raw={current:{time:at/1000,cloud_cover:weather.cloud,precipitation:weather.precipitation,weather_code:weather.code},hourly:{time:[at/1000-3600,at/1000+3600],cloud_cover:[weather.cloud,weather.cloud],precipitation:[weather.precipitation,weather.precipitation],weather_code:[weather.code,weather.code]}};
+  const data=normalizeForecast(raw,n,at),cycle=calculateNaturalLighting(at,n,DEFAULT_SAFETY,data,{current:true});
+  assert.equal(cycle.weather.cloud,weather.cloud);assert.equal(cycle.weather.source,'current');
+  const engine=new LightingEngine(),sample=t=>{const state=engine.state(cycle.preset,t);return Array.from({length:240},(_,i)=>engine.sample(state,(i%20)/19,Math.floor(i/20)/11));};
+  const a=sample(0),b=sample(30),near=sample(30+1/30),luma=v=>(v.r+v.g+v.b)/3;
+  const values=a.map(luma),mean=values.reduce((a,b)=>a+b)/values.length;
+  results[name]={mean,range:Math.max(...values)-Math.min(...values),motion:a.reduce((sum,v,i)=>sum+Math.abs(luma(v)-luma(b[i])),0)/a.length};
+  assert(Math.max(...b.map((v,i)=>Math.abs(luma(v)-luma(near[i]))))<.01);
+  assert.equal(engine.state(cycle.preset,5.77).flash,0);
+  if(name==='overcast'||name==='thunderstorm')assert.equal(cycle.preset.shaftStrength,0);
+  if(name==='partly-cloudy')assert(cycle.preset.shaftStrength>0&&cycle.preset.shaftStrength<.02);
+  assert(cycle.brightness<=DEFAULT_SAFETY.maxBrightness);
+  const night=calculateNaturalLighting(at+12*3600000,n,DEFAULT_SAFETY,data,{weatherOverride:weather});assert.equal(night.brightness,0);
+ }
+ assert(results.cloudy.mean<results.clear.mean*.93);
+ assert(results.overcast.range<results['partly-cloudy'].range);
+ assert(results['partly-cloudy'].motion>.002);
+ assert(results.overcast.mean>=results.clear.mean*DEFAULT_SAFETY.minWeatherFactor);
+ console.log(results);
+});
+test('weather override remains inside preview and hardware gates reject it',async()=>{
+ const {createStore}=await import('../../js/state.js');
+ const {createPreviewController,createRealLightingController}=await import('../../js/controllers.js');
+ const {prepareRealHardwareOutput}=await import('../../js/hardware-output.js');
+ const store=createStore(),s=store.getState(),at=Date.parse('2026-06-21T12:00Z');
+ const n={...s.natural,latitude:0,longitude:0};let emitted=0;
+ const real=createRealLightingController(store,()=>new Date(at));real.subscribeRealOutput(()=>emitted++);const before=real.sample();
+ const preview=createPreviewController(s.schedule,s.cycleSettings,720,{natural:n,safety:s.safety,date:'2026-06-21',now:at});
+ for(const name of ['clear','partly-cloudy','cloudy','overcast','rain','thunderstorm']){
+  preview.setWeatherOverride(name);const output=preview.snapshot();assert.equal(output.minutes,720);assert.equal(output.weather.source,'simulation');
+  assert.throws(()=>prepareRealHardwareOutput(output,s.safety));
+ }
+ assert.equal(real.getOutput(),before);assert.equal(emitted,1);assert.equal(store.getState(),s);
+ preview.setWeatherOverride(null);assert.notEqual(preview.snapshot().weather.source,'simulation');
+ assert.throws(()=>preview.setWeatherOverride('invalid'));
+ preview.setPlaying(true);preview.setSpeed(1440);preview.advance(5);assert.equal(preview.snapshot().minutes,840);
+});

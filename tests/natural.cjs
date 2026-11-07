@@ -14,5 +14,31 @@ const {launchBrowser,testUrl}=require('./browser-helpers.cjs');const assert=requ
  await page.locator('#preview-open').click();await page.locator('#preview-date').fill('2026-06-21');await page.locator('#preview-timeline').fill('720');await page.waitForTimeout(200);await page.screenshot({path:'/tmp/aquaos-natural-preview.png',fullPage:true});
  await page.locator('#preview-speed').selectOption('1440');await page.locator('#preview-play').click();await page.waitForTimeout(500);await page.locator('#preview-play').click();await page.locator('#preview-now').click();const actualDate=await page.evaluate(async()=>{const {zonedParts}=await import('./js/astronomy.js');return zonedParts(Date.now(),'Europe/Vienna').date;});assert.equal(await page.locator('#preview-date').inputValue(),actualDate);await page.locator('#preview-close').click();assert.equal(await page.evaluate(()=>localStorage.getItem('aquaos.settings.v1')),saved);
  await page.reload();assert.equal(await page.locator('#mode-natural').getAttribute('aria-pressed'),'true');await page.locator('[data-preset=sunny]').click();assert.equal(await page.locator('#mode-manual').getAttribute('aria-pressed'),'true');
+ // Developer-only control retains the same comparison time and leaves live state alone.
+ await page.goto(url+'?devWeather=1');await page.locator('#mode-natural').click();
+ await page.locator('#preview-open').click();await page.locator('#preview-date').fill('2026-06-21');await page.locator('#preview-timeline').fill('720');
+ const stored=await page.evaluate(()=>localStorage.getItem('aquaos.settings.v1'));
+ const renderTimes=await page.evaluate(async()=>{
+  const {AquariumRenderer}=await import('./js/renderer.js');const {calculateNaturalLighting}=await import('./js/natural.js');
+  const {PREVIEW_WEATHER}=await import('./js/preview-weather.js');const {DEFAULT_NATURAL}=await import('./js/natural.js');const {DEFAULT_SAFETY}=await import('./js/safety.js');
+  const p=calculateNaturalLighting(Date.parse('2026-06-21T12:00Z'),{...DEFAULT_NATURAL,latitude:0,longitude:0},DEFAULT_SAFETY,null,{weatherOverride:PREVIEW_WEATHER['partly-cloudy']}).preset;
+  const canvas=document.createElement('canvas');canvas.style.cssText='width:354px;height:280px';document.body.append(canvas);
+  const renderer=new AquariumRenderer(canvas,p);renderer.setSuspended(true);const times=[];
+  for(let i=0;i<90;i++){renderer.clock.elapsed=i/30;const start=performance.now();renderer.draw();times.push(performance.now()-start);}
+  renderer.destroy();canvas.remove();times.sort((a,b)=>a-b);return {median:times[45],p95:times[85]};
+ });
+ assert(renderTimes.p95<33.4,'Natural cloud-gap rendering fits the 30fps development budget');console.log({naturalRenderMilliseconds:renderTimes});
+
+ for(const name of ['clear','partly-cloudy','cloudy','overcast','rain','thunderstorm']){
+  await page.getByLabel('Preview weather',{exact:true}).selectOption(name);
+  assert.equal(await page.locator('#preview-timeline').inputValue(),'720');
+  assert((await page.locator('#preview-weather').textContent()).includes('Developer simulation'));
+  assert.equal(await page.locator('#preview-play').getAttribute('aria-pressed'),'false');
+  await page.waitForTimeout(100);await page.locator('#preview-scene').screenshot({path:`/tmp/aquaos-weather-${name}.png`});
+ }
+ assert.equal(await page.evaluate(()=>localStorage.getItem('aquaos.settings.v1')),stored);
+ await page.locator('#preview-close').click();await page.locator('#preview-open').click();
+ assert.equal(await page.getByLabel('Preview weather',{exact:true}).inputValue(),'');
+ await page.locator('#preview-close').click();
  assert.deepEqual(errors,[]);console.log('PASS: mocked weather/location UI, Natural Mode layouts/persistence, no GPS and preview storage isolation.');await browser.close();
 })().catch(e=>{console.error(e);process.exit(1)});

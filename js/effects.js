@@ -105,6 +105,21 @@ export class LightingPass {
     ctx.globalCompositeOperation='multiply';ctx.drawImage(this.map,0,0,w,h);
     // Low-energy, uniform scattering avoids bright radial/conical source masks.
     const flash=this.old.flash+(this.state.flash-this.old.flash)*this.blend;
+    // Soft overhead scattering follows the same 2D cloud openings. The small
+    // interpolated map fades with depth, without cones or individual spotlights.
+    const strength=(this.old.p.shaftStrength||0)*(1-this.blend)+(this.state.p.shaftStrength||0)*this.blend;
+    if(!floor&&strength>0){
+      const direct=this.old.direct+(this.state.direct-this.old.direct)*this.blend;
+      for(let col=0;col<96;col++){
+        const light=this.field.sample(col/95,depth,this.sampleA);
+        const alpha=strength*Math.max(0,(light.transmission-.55)/.45)*Math.min(1,direct/.3);
+        for(let row=0;row<64;row++){
+          const i=(row*96+col)*4,fade=Math.max(0,1-row/63/.85);
+          data[i]=180;data[i+1]=210;data[i+2]=195;data[i+3]=255*alpha*fade*fade;
+        }
+      }
+      this.ctx.putImageData(this.pixels,0,0);ctx.globalCompositeOperation='screen';ctx.drawImage(this.map,0,0,w,h);
+    }
     ctx.globalCompositeOperation='screen';ctx.fillStyle=`rgba(155,190,175,${.012*Math.min(1,(this.state.ambient+this.state.direct)/.3)+flash*.3})`;ctx.fillRect(0,0,w,h);ctx.restore();
   }
 }

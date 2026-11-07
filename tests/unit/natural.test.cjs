@@ -41,8 +41,10 @@ test('natural domain regressions', async () => {
     fullOutput=calc(moonPeakAt,moonN,s,moonData(.5),{now:moonPeakAt}).brightness;
     newOutput=calc(moonPeakAt,moonN,s,moonData(0),{now:moonPeakAt}).brightness;
   }
+  // Safety covers visible direct + diffuse radiance; cloud cover intentionally
+  // transfers energy away from the direct red hardware-request component.
   const daylightEngine=new LightingEngine();
-  const clearChannel=daylightEngine.sample(daylightEngine.state(clear.preset,0),.5,.5).red,stormChannel=daylightEngine.sample(daylightEngine.state(storm.preset,0),.5,.5).red;
+  const clearChannel=daylightEngine.sample(daylightEngine.state(clear.preset,0),.5,.5).r,stormChannel=daylightEngine.sample(daylightEngine.state(storm.preset,0),.5,.5).r;
   const twilightN={...n,twilightMinutes:15},twilightPlan=naturalPlan('2026-06-21',twilightN,s),twilight=calc(twilightPlan.start+8*60000,twilightN,s);
   const limit=limitRealChange(clear,{brightness:0},1,s),dark=limitRealChange(calc(plan.end+3600000,n,s),{brightness:.8},1,s);
   const engine=new LightingEngine();const noFlash=engine.state(storm.preset,5.77).flash;

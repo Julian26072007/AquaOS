@@ -40,7 +40,7 @@ export function weatherAt(epoch,data,now=epoch,{current=false}={}){
   if(current&&data.current&&Math.abs(epoch-data.current.at)<30*60000){for(const key of CURRENT_FIELDS){const names={cloud_cover:'cloud',precipitation:'precipitation',rain:'rain',weather_code:'code',wind_speed_10m:'windSpeed',wind_direction_10m:'windDirection'};const name=names[key],value=data.current[name];if(typeof value==='number'&&Number.isFinite(value))out[name]=value;}out.source='current';}
   return out;
 }
-export function weatherLabel(w){return w.code>=95?'Storm':w.precipitation>.1?'Rain':w.cloud>80?'Overcast':w.cloud>35?'Cloudy':'Clear';}
+export function weatherLabel(w){return w.code>=95?'Storm':w.precipitation>.1?'Rain':w.cloud>85?'Overcast':w.cloud>60?'Cloudy':w.cloud>15?'Partly cloudy':'Clear';}
 function validCache(c,key,now){
   if(c?.schema!==1||c.key!==key||!Number.isFinite(c.fetchedAt)||now-c.fetchedAt< -60000||now-c.fetchedAt>=MAX_WEATHER_AGE||!Array.isArray(c.daily)||!Array.isArray(c.hourly)||c.hourly.length<2)return false;
   if(!c.hourly.every((r,i)=>Number.isFinite(r?.at)&&(!i||r.at>c.hourly[i-1].at)&&Object.keys(FALLBACK_WEATHER).filter(k=>k!=='source').every(k=>r[k]===null||r[k]===undefined||typeof r[k]==='number'&&Number.isFinite(r[k]))))return false;

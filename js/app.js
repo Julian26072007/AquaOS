@@ -96,7 +96,7 @@ function renderPreview(){
   const state=preview.snapshot();previewRenderer.setLighting(state.preset);
   $('preview-timeline').value=state.minutes;$('preview-timeline').setAttribute('aria-valuetext',`${formatTime(state.minutes)}, ${state.phase}`);
   text('preview-time',formatTime(state.minutes));text('preview-phase',state.phase+(state.astronomy&&state.phase==='Moonlight'?' · '+state.astronomy.moonLabel:''));
-  if(state.weather)text('preview-weather',`${weatherLabel(state.weather)} · ${state.weather.source==='estimated'?'Estimated weather':'Forecast'}${state.phase==='Night'&&state.moonEnabled?' · '+state.astronomy.moonLabel:''}`);
+  if(state.weather)text('preview-weather',`${weatherLabel(state.weather)} · ${state.weather.source==='simulation'?'Developer simulation':state.weather.source==='estimated'?'Estimated weather':'Forecast'}${state.phase==='Night'&&state.moonEnabled?' · '+state.astronomy.moonLabel:''}`);
   text('preview-play',state.playing?'Pause':'Play');$('preview-play').setAttribute('aria-pressed',String(state.playing));
 }
 function previewTick(now){
@@ -107,12 +107,20 @@ $('preview-open').addEventListener('click',()=>{
   const naturalMode=mode==='natural',data=weatherProvider.snapshot().data;
   preview=createPreviewController(schedule,cycleSettings,naturalMode?zoned.minutes:localMinutes(new Date()),naturalMode?{natural,safety,data:data?.key===locationKey(natural)?data:null,date:zoned.date,now:at}:null);
   $('preview-natural-row').hidden=!naturalMode;$('preview-date').value=zoned.date;
+  // Opt-in developer controls affect only the isolated preview controller.
+  if(naturalMode&&new URLSearchParams(location.search).get('devWeather')==='1'){
+    const label=document.createElement('label');label.id='developer-weather';label.textContent='Preview weather ';
+    const select=document.createElement('select');select.setAttribute('aria-label','Preview weather');
+    for(const [value,name] of [['','Live forecast'],['clear','Clear'],['partly-cloudy','Partly cloudy'],['cloudy','Cloudy'],['overcast','Overcast'],['rain','Rain'],['thunderstorm','Thunderstorm']])select.add(new Option(name,value));
+    select.addEventListener('change',()=>{preview.setPlaying(false);preview.setWeatherOverride(select.value||null);renderPreview();});
+    label.append(select);$('preview-natural-row').append(label);
+  }
   previewDialog.showModal();renderer.setSuspended(true);
   previewRenderer=new AquariumRenderer($('preview-scene'),preview.snapshot().preset);previewRenderer.scenery=renderer.scenery;
   $('preview-speed').value='360';previewLast=null;renderPreview();previewFrame=requestAnimationFrame(previewTick);
 });
 $('preview-close').addEventListener('click',()=>previewDialog.close());
-previewDialog.addEventListener('close',()=>{cancelAnimationFrame(previewFrame);previewRenderer?.destroy();previewRenderer=null;preview=null;previewLast=null;renderer.setSuspended(false);});
+previewDialog.addEventListener('close',()=>{$('developer-weather')?.remove();cancelAnimationFrame(previewFrame);previewRenderer?.destroy();previewRenderer=null;preview=null;previewLast=null;renderer.setSuspended(false);});
 $('preview-timeline').addEventListener('input',()=>{preview.scrub(Number($('preview-timeline').value));renderPreview();});
 $('preview-play').addEventListener('click',()=>{preview.setPlaying(!preview.snapshot().playing);previewLast=null;renderPreview();});
 $('preview-speed').addEventListener('change',()=>{preview.setSpeed(Number($('preview-speed').value));previewLast=null;});
