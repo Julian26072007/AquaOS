@@ -15,6 +15,8 @@ export class LightingEngine {
   state(p,t,reduced=false,assemblies=DEFAULT_ASSEMBLIES){
     if(reduced)t=0;
     const config=p.lighting;
+    if(p.whiteBalance!==undefined)assemblies=assemblies.map(s=>{const warmWhite=Math.max(0,Math.min(1,p.whiteBalance+s.warmWhite-.48));return {...s,warmWhite,coolWhite:1-warmWhite};});
+    if(p.rgbGain!==undefined)assemblies=assemblies.map(s=>({...s,rgb:s.rgb.map(value=>value*p.rgbGain)}));
     let direct=config.direct;
     if(p.id==='sunrise')direct*=.35+.65*(1-Math.exp(-t/90));
     if(p.id==='sunset')direct*=.3+.7*Math.exp(-t/100);
@@ -93,6 +95,6 @@ export class LightingPass {
     ctx.globalCompositeOperation='multiply';ctx.drawImage(this.map,0,0,w,h);
     // Low-energy, uniform scattering avoids bright radial/conical source masks.
     const flash=this.old.flash+(this.state.flash-this.old.flash)*this.blend;
-    ctx.globalCompositeOperation='screen';ctx.fillStyle=`rgba(155,190,175,${.012+flash*.3})`;ctx.fillRect(0,0,w,h);ctx.restore();
+    ctx.globalCompositeOperation='screen';ctx.fillStyle=`rgba(155,190,175,${.012*Math.min(1,(this.state.ambient+this.state.direct)/.3)+flash*.3})`;ctx.fillRect(0,0,w,h);ctx.restore();
   }
 }

@@ -17,7 +17,9 @@ Open http://localhost:8000. Deploy the repository root through GitHub Pages (Set
 - `index.html`, `styles.css`: accessible single-page UI, responsive layout and safe-area spacing.
 - `js/app.js`: preset buttons and UI wiring.
 - `js/presets.js`: immutable preset definitions and intent-level effect parameters.
-- `js/state.js`: validated selection, subscriptions and versioned local storage; works when storage is blocked.
+- `js/state.js`: persisted manual/automatic mode, preset, validated schedule and cycle settings; works when storage is blocked.
+- `js/schedule.js`: pure local-time daily lighting calculation and cyclic schedule validation.
+- `js/controllers.js`: independent real-clock lighting controller and simulation-only preview controller. Preview accepts no output or persistence callback.
 - `js/effects.js`: two broad conceptual assemblies, lighting state, material illumination and water projection.
 - `js/light-field.js`: reusable 96×48 top-down field with bilinear sampling, conceptual RGB/white channels and front/rear contributions.
 - `js/hardware-mapping.js`: capability-based averaging into uniform or segmented channels; no device communication.
@@ -40,11 +42,20 @@ With the server running and Playwright available:
 node tests/browser.cjs
 node tests/lighting.cjs
 node tests/field.cjs
+node tests/schedule.cjs
 ```
 
 The default test URL is `http://127.0.0.1:8000/aquaos/` for the workspace parent server. When serving this repository root directly, prefix the commands with `TEST_URL=http://127.0.0.1:8000/`. Set `CHROMIUM_PATH` if Chromium is installed elsewhere.
 
 Tests exercise every preset, mobile widths, keyboard input, persistence, invalid/blocked storage, reduced motion, project-path hosting and browser errors. Chromium mobile emulation is useful but does not replace testing on a physical iPhone in Safari.
+
+## Automatic cycle and preview
+
+Choose **Automatic** to follow local browser time, or **Manual** to use the existing preset grid. Tapping a preset returns to Manual without changing the schedule. New/legacy installs remain Manual until Automatic is selected. Use the gear button to configure sunrise/sunset starts and durations, daytime brightness and optional very dim moonlight. Default phases are 06:00–09:00 sunrise, 09:00–18:00 daylight, 18:00–21:00 sunset, and night otherwise. Night defaults to off; optional moonlight is capped at 5% conceptual intensity.
+
+**Preview day** opens a simulation sheet with the same aquarium artwork/renderer, a 24-hour slider, Play/Pause, 60×/360×/1440× playback and Now. One full cycle takes 24 minutes, 4 minutes or 1 minute respectively. Scrubbing and playback affect only the preview; clouds use ordinary elapsed animation time. Preview state is discarded on closing and never saved. The main real-clock controller continues while its covered canvas is suspended.
+
+See [schedule and preview architecture](docs/automatic-cycle.md) for persistence, validation, local-time behavior, tests and the strict future hardware boundary.
 
 ## Lighting model
 

@@ -17,18 +17,18 @@ const assert = require('node:assert/strict');
  const images=new Set();
  for(const button of await page.locator('.preset').all()){
   await button.click();await page.waitForTimeout(500);
-  assert.equal(await button.getAttribute('aria-pressed'),'true');assert.equal(await page.locator('[aria-pressed=true]').count(),1);
+  assert.equal(await button.getAttribute('aria-pressed'),'true');assert.equal(await page.locator('.preset[aria-pressed=true]').count(),1);
   assert.equal(await page.locator('#preset-name').textContent(),await button.locator('.preset-name').textContent());
-  images.add(await page.locator('canvas').evaluate(c=>c.toDataURL()));
+  images.add(await page.locator('#scene').evaluate(c=>c.toDataURL()));
   const box=await button.boundingBox();assert(box.width>=44&&box.height>=44);
  }
  assert.equal(images.size,9,'distinct preset scenes');await page.reload();await page.waitForSelector('.preset');assert.equal(await page.locator('#preset-name').textContent(),'Sparkle');
  await page.locator('[data-preset=sunny]').focus();await page.keyboard.press('Enter');assert.equal(await page.locator('#preset-name').textContent(),'Sunny');
- await page.emulateMedia({reducedMotion:'reduce'});await page.locator('[data-preset=storm]').click();const still=await page.locator('canvas').evaluate(c=>c.toDataURL());await page.waitForTimeout(600);assert.equal(await page.locator('canvas').evaluate(c=>c.toDataURL()),still);
- await page.locator('[data-preset=moonlight]').click();assert.notEqual(await page.locator('canvas').evaluate(c=>c.toDataURL()),still);
+ await page.emulateMedia({reducedMotion:'reduce'});await page.locator('[data-preset=storm]').click();const still=await page.locator('#scene').evaluate(c=>c.toDataURL());await page.waitForTimeout(600);assert.equal(await page.locator('#scene').evaluate(c=>c.toDataURL()),still);
+ await page.locator('[data-preset=moonlight]').click();assert.notEqual(await page.locator('#scene').evaluate(c=>c.toDataURL()),still);
  await page.evaluate(()=>localStorage.setItem('aquaos.settings.v1','broken'));await page.reload();await page.waitForSelector('.preset');assert.equal(await page.locator('#preset-name').textContent(),'Sunny');
  // The scenery stays stable on resize but changes on a new page load.
- const canvasImage=()=>page.locator('canvas').evaluate(c=>c.toDataURL());
+ const canvasImage=()=>page.locator('#scene').evaluate(c=>c.toDataURL());
  const beforeResize=await canvasImage();
  await page.setViewportSize({width:430,height:760});await page.waitForTimeout(100);
  await page.setViewportSize({width:390,height:664});await page.waitForTimeout(100);
