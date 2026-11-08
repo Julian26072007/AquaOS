@@ -16,12 +16,11 @@ export class LightingEngine {
     if(reduced)t=0;
     let motion=null;
     if(p.environmentTime!==undefined){
-      // Absolute, deliberately slow pattern time; independent of playback and
-      // forecast wind changes. Weather controls optical thickness, not identity.
+      // Absolute timeline and integrated wind; neither depends on frame history.
       t=p.environmentTime;
-      motion={x:t*.023,y:t*.011,coverage:p.cloudCoverage};
+      motion={...(p.cloudMotion??{x:t*.023,y:t*.011}),coverage:p.cloudCoverage};
     }else if(p.wind){
-      motion={x:t*.023,y:t*.011,coverage:p.cloudCoverage};
+      motion={...(p.cloudMotion??{x:t*.023,y:t*.011}),coverage:p.cloudCoverage};
     }
     const config=p.lighting;
     if(p.whiteBalance!==undefined)assemblies=assemblies.map(s=>{const warmWhite=Math.max(0,Math.min(1,p.whiteBalance+s.warmWhite-.48));return {...s,warmWhite,coolWhite:1-warmWhite};});

@@ -112,7 +112,7 @@ function renderPreview(){
 }
 function renderWeatherDiagnostics(){
   const panel=$('weather-diagnostics');if(!panel||!previewRenderer)return;
-  const state=preview.snapshot(),w=state.weather,m=state.weatherLighting;
+  const state=preview.snapshot(),w=state.weather,m=state.weatherLighting,e=state.environment;
   const value=(v,unit='')=>Number.isFinite(v)?`${v.toFixed(unit?1:4)}${unit}`:'unavailable';
   const timestamp=v=>Number.isFinite(v)?new Date(v).toISOString():'unavailable';
   const lighting=previewRenderer.lighting,received=lighting.state,field=lighting.field;
@@ -126,6 +126,8 @@ function renderWeatherDiagnostics(){
     `Cloud ${value(w.cloud,'%')} · low ${value(w.low,'%')} / mid ${value(w.mid,'%')} / high ${value(w.high,'%')}`,
     `Direct ${value(w.directRadiation,' W/m²')} · diffuse ${value(w.diffuseRadiation,' W/m²')}`,
     `Wind ${value(w.windSpeed,' m/s')} from ${value(w.windDirection,'°')}`,
+    `Continuous cover ${value(e.cloudCoverage)} · optical depth ${value(e.opticalDepth)} (estimated)`,
+    `Rain ${value(e.rainIntensity)} · snow ${value(e.snowIntensity)} · haze ${value(e.haze)} (${e.provenance.haze})`,
     `Sun altitude ${value(state.astronomy.sunAltitude*180/Math.PI,'°')}`,
     `Calculated diffuse ${value(m.diffuseIllumination)} · direct ${value(m.directIllumination)} · shadow ${value(m.shadowStrength)}`,
     `Weather attenuation ${value(state.weatherFactor)} · final intensity ${value(state.brightness)}`,

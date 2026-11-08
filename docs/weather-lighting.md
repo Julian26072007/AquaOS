@@ -1,5 +1,8 @@
 # Weather lighting and preview verification
 
+Phase 2 extends this implementation; see [Continuous dynamic weather](continuous-weather.md)
+for the current state contract, procedural variation, integrated wind and validation.
+
 ## Data flow and cause
 
 Open-Meteo current/hourly percentages are normalized in `weather.js`. The real
