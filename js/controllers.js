@@ -4,18 +4,19 @@ import {getPreset} from './presets.js';
 import {evaluateEnvironment,evaluateScheduledEnvironment} from './environment.js';
 import {createNaturalRuntimeSafety} from './safety.js';
 import {locationKey} from './weather.js';
+import {createLiveEnvironmentEvaluator} from './live-environment.js';
 import {zonedParts,epochForZoned} from './astronomy.js';
 /** Only this controller may feed a future hardware subscriber. Its real clock
  * is private and has no setter. Preview has no reference to this controller. */
 export function createRealLightingController(store,now=()=>new Date(),environment=()=>({data:null,status:'offline'})){
-  const listeners=new Set(),runtimeSafety=createNaturalRuntimeSafety();let output,previousNatural=null;
+  const listeners=new Set(),runtimeSafety=createNaturalRuntimeSafety(),evaluateLive=createLiveEnvironmentEvaluator();let output,previousNatural=null;
   return {
     sample(){
       const state=store.getState(),at=now();
       let cycle=state.mode==='automatic'?evaluateScheduledEnvironment(at,state.schedule,state.cycleSettings,at.getTime()):null;
       if(state.mode==='natural'){
         const snapshot=environment(),data=snapshot.data?.key===locationKey(state.natural)?snapshot.data:null;
-        const target=evaluateEnvironment(at.getTime(),state.natural,state.safety,data,{now:at.getTime(),current:true});
+        const target=evaluateLive(at.getTime(),state.natural,state.safety,data);
         cycle=runtimeSafety(target,previousNatural,at.getTime(),state.natural,state.safety);cycle.weatherStatus=snapshot.status;
         previousNatural=cycle;
       }else{previousNatural=null;}

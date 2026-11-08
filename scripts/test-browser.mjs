@@ -5,7 +5,7 @@ import { resolve, extname, sep } from 'node:path';
 import { spawn } from 'node:child_process';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
-const suites = ['browser', 'lighting', 'field', 'schedule', 'natural', 'weather-rendering', 'weather-scattering'];
+const suites = ['browser', 'lighting', 'field', 'schedule', 'natural', 'weather-rendering', 'weather-scattering', 'live-weather'];
 const selected = process.argv.slice(2);
 if (selected.some(name => !suites.includes(name))) {
   console.error(`Choose suites: ${suites.join(', ')}`);
