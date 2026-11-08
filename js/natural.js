@@ -1,3 +1,4 @@
+import {continuousWeather} from './weather-environment.js';
 import {calculateLightingAtTime,formatTime} from './schedule.js';
 import {astronomyAt,zonedParts,epochForZoned} from './astronomy.js';
 import {DEFAULT_SAFETY,validateSafety,safeBudget,constrainTarget} from './safety.js';
@@ -72,8 +73,9 @@ export function calculateNaturalLighting(epoch,n=DEFAULT_NATURAL,policy=DEFAULT_
   const plans=[-1,0,1].map(d=>naturalPlan(dateShift(at.date,d),n,policy,data));
   const plan=plans.find(p=>epoch>=p.start&&epoch<p.end)||plans[1];
   const elapsed=(epoch-plan.start)/60000,inside=epoch>=plan.start&&epoch<plan.end;
-  const cloud=Math.max(0,Math.min(1,(Number.isFinite(weather.cloud)?weather.cloud:40)/100));
-  const rain=Math.max(0,Math.min(1,(Number.isFinite(weather.precipitation)?weather.precipitation:0)/8));
+  const environment=continuousWeather(epoch,weather,weatherOverride||weather.source==='estimated'?null:data);
+  const cloud=environment.cloudCoverage;
+  const rain=environment.rainIntensity;
   const solar=weather.radiation===null||!Number.isFinite(weather.radiation)?1:.95+.05*Math.max(0,Math.min(1,weather.radiation/700));
   const weatherFactor=Math.max(policy.minWeatherFactor,Math.min(1,(1-.25*cloud-.08*rain-.08*(weather.storm??Number(weather.code>=95)))*solar));
   const schedule={sunriseStart:plan.twilight,sunriseDuration:plan.rise,sunsetStart:Math.max(plan.twilight+plan.rise+1,plan.day-plan.set),sunsetDuration:plan.set};
@@ -91,23 +93,26 @@ export function calculateNaturalLighting(epoch,n=DEFAULT_NATURAL,policy=DEFAULT_
   const tint=moon?[.80,.85,.9]:twilight?twilightTint:cycle.preset.lighting.tint.map((v,i)=>plan.twilight?twilightTint[i]+(v-twilightTint[i])*ease(cycle.progress):v);
   // Transfer direct energy to diffuse sky light as cloud cover closes. Keep the
   // unshadowed energy approximately constant before bounded weather dimming.
-  const model=weatherLightingModel(weather,at.sunAltitude);
+  const model=weatherLightingModel({...weather,cloud:cloud*100},at.sunAltitude);
+  // Haze/snow scatter a bounded portion of direct energy into the sky term.
+  const scatter=Math.min(.45,environment.haze*.4+environment.snowIntensity*.12);
+  const scattered=model.direct*scatter;model.direct-=scattered;model.ambient+=scattered*.97;
+  environment.provenance.solar=model.radiationSource;
+  environment.directSolarIllumination=model.direct/1.1333333333;
+  environment.diffuseSkyIllumination=model.ambient/1.1;
   const daylight=night||moon||twilight?0:ease(Math.min(1,cycle.progress*12));
   const ambient=.44+(model.ambient-.44)*daylight,direct=.68+(model.direct-.68)*daylight;
   // Conservative RGB energy envelope (including clear-water caustics) reserves
   // the configured daylight floor while allowing the remaining direct light to move.
   const transmissionFloor=Math.max(.18,Math.min(1,((.44+.68*1.02)*policy.minWeatherFactor/weatherFactor-ambient)/Math.max(1e-6,direct*.94)));
-  const windSpeed=Math.max(0,Math.min(20,Number.isFinite(weather.windSpeed)?weather.windSpeed:2));
-  const bearing=(Number.isFinite(weather.windDirection)?weather.windDirection:250)*Math.PI/180;
-  const drift=.003+.025*Math.sqrt(windSpeed/20);
   const nextPlan=plans.find(p=>p.start>epoch)||naturalPlan(dateShift(at.date,2),n,policy,data);
   const tomorrow=astronomyAt(epochForZoned(dateShift(at.date,1),720,n.timezone),n,data);
   const nextAstro=[{label:'Sunrise',at:at.sunrise},{label:'Sunset',at:at.sunset},{label:'Sunrise',at:tomorrow.sunrise},{label:'Sunset',at:tomorrow.sunset}].filter(event=>Number.isFinite(event.at)&&event.at>epoch).sort((a,b)=>a.at-b.at)[0]||{label:'Sunrise',at:null};
-  const preset={...cycle.preset,id:'natural',name:cycle.phase,cloudDensity:cloud*(.7+(weather.low??cloud*100)/100*.2+(weather.mid??cloud*100)/100*.07+(weather.high??cloud*100)/100*.03)*.95,cloudCoverage:cloud,cloudTransmissionFloor:transmissionFloor,shaftStrength:.22*4*cloud*(1-cloud)*(1-rain)*Math.min(1,direct/.3)*daylight,allowLightning:false,
-    wind:{x:-Math.sin(bearing)*drift,y:-Math.cos(bearing)*drift},rgbGain:moon?.2:cycle.preset.rgbGain,whiteBalance:moon?.5:(cycle.preset.whiteBalance??.48)-rain*.12,
+  const preset={...cycle.preset,id:'natural',name:cycle.phase,cloudDensity:environment.opticalDepth*.7,cloudCoverage:cloud,cloudTransmissionFloor:transmissionFloor,shaftStrength:.22*4*cloud*(1-cloud)*(1-rain)*Math.min(1,direct/.3)*daylight,allowLightning:false,
+    cloudMotion:environment.cloudMotion,environment,rgbGain:moon?.2:cycle.preset.rgbGain,whiteBalance:moon?.5:(cycle.preset.whiteBalance??.48)-rain*.12-environment.snowIntensity*.06,
     lighting:{...cycle.preset.lighting,tint,ambient:cycle.brightness*ambient,direct:cycle.brightness*direct,caustics:.06*(1-cloud)**2*Math.min(1,direct/.68)*daylight}};
   const next=inside?(elapsed<plan.twilight?plan.start+plan.twilight*60000:elapsed<plan.twilight+plan.rise?plan.start+(plan.twilight+plan.rise)*60000:elapsed<plan.day-plan.set?plan.dayEnd-plan.set*60000:elapsed<plan.day?plan.dayEnd:plan.end):nextPlan.start;
   const description=`${weatherLabel(weather)} · ${cycle.phase}`;
   preset.description=description;
-  return constrainTarget({...cycle,minutes:at.minutes,preset,astronomy:at,weather,weatherLighting:{...model,diffuseIllumination:cycle.brightness*ambient,directIllumination:cycle.brightness*direct,shadowStrength:(1-transmissionFloor)*cloud},weatherFactor,plan,description,moonEnabled:n.moonEnabled,nextTransition:next,nextPhase:'Transition',nextAstronomy:nextAstro,darknessRequired:night},policy);
+  return constrainTarget({...cycle,minutes:at.minutes,preset,astronomy:at,weather,environment,weatherLighting:{...model,diffuseIllumination:cycle.brightness*ambient,directIllumination:cycle.brightness*direct,shadowStrength:(1-transmissionFloor)*cloud},weatherFactor,plan,description,moonEnabled:n.moonEnabled,nextTransition:next,nextPhase:'Transition',nextAstronomy:nextAstro,darknessRequired:night},policy);
 }

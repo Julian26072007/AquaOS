@@ -28,7 +28,7 @@ const assert=require('node:assert/strict');
     for(let i=0;i<pixels.length;i+=4){for(let k=0;k<3;k++){sum+=pixels[i+k];delta+=Math.abs(pixels[i+k]-clearPixels[i+k]);}if([0,1,2].some(k=>pixels[i+k]!==clearPixels[i+k]))changed++;}
     const field=renderer.lighting.field,values=[];
     for(let i=0;i<field.data.length;i+=field.stride)values.push((field.data[i]+field.data[i+1]+field.data[i+2])/3);
-    results.push({cloud:state.weather.cloud,receivedCloud:renderer.lighting.state.p.cloudCoverage,brightness:state.brightness,attenuation:state.weatherFactor,direct:renderer.lighting.state.direct,diffuse:renderer.lighting.state.ambient,fieldMin:Math.min(...values),fieldMax:Math.max(...values),pixelMean:sum/(pixels.length/4*3),pixelDelta:delta/(pixels.length/4*3),changedFraction:changed/(pixels.length/4),image:canvas.toDataURL()});
+    results.push({cloud:state.weather.cloud,environmentCloud:state.environment.cloudCoverage,receivedCloud:renderer.lighting.state.p.cloudCoverage,brightness:state.brightness,attenuation:state.weatherFactor,direct:renderer.lighting.state.direct,diffuse:renderer.lighting.state.ambient,fieldMin:Math.min(...values),fieldMax:Math.max(...values),pixelMean:sum/(pixels.length/4*3),pixelDelta:delta/(pixels.length/4*3),changedFraction:changed/(pixels.length/4),image:canvas.toDataURL()});
    }
    const boundaries=[];
    const {evaluateEnvironment}=await import('./js/environment.js');
@@ -53,6 +53,6 @@ const assert=require('node:assert/strict');
    assert(b.meanDelta<.05,`boundary mean pixel delta ${b.meanDelta}`);assert(b.maxDelta<=2);
   }
   console.log(JSON.stringify({results,boundaries},null,2));
-  for(const [i,r] of results.entries()){assert.equal(r.cloud,[0,50,100][i]);assert.equal(r.receivedCloud,r.cloud/100);if(i){assert(r.direct<results[i-1].direct);assert(r.brightness<results[i-1].brightness);assert(r.pixelMean<results[i-1].pixelMean);assert(r.changedFraction>.9);assert(r.pixelDelta>1);}}
+  for(const [i,r] of results.entries()){assert.equal(r.cloud,[0,50,100][i]);assert.equal(r.receivedCloud,r.environmentCloud);assert(Math.abs(r.receivedCloud-r.cloud/100)<=.055);if(i){assert(r.direct<results[i-1].direct);assert(r.brightness<results[i-1].brightness);assert(r.pixelMean<results[i-1].pixelMean);assert(r.changedFraction>.9);assert(r.pixelDelta>1);}}
  }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exit(1);});

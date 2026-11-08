@@ -9,8 +9,9 @@ export function createCloudField(seed=7319){
     const warp=noise(x*.8+12-drift*.25,y*.6+35-depthDrift*.3)*.65;
     const low=fbm(x*2.4-drift+warp+17,y*1.7+23-depthDrift);
     const high=fbm(x*1.5-drift*.63+73,y*1.2-depthDrift*.71+81);
-    const coverage=noise(t*.003+51,4)*.12;
-    const thickness=smoothstep(.30,.70,low*.75+high*.25+coverage-.06+(motion?.coverage===undefined?0:(motion.coverage-.5)*.35));
+    const coverage=motion?.coverage===undefined?noise(t*.003+51,4)*.12:0;
+    const field=low*.75+high*.25+coverage-.06;
+    const thickness=motion?.coverage===undefined?smoothstep(.30,.70,field):smoothstep(.12,.52,field+motion.coverage*.8-.4)*smoothstep(0,.12,motion.coverage);
     // Transmittance, not a painted cloud: only the direct term is blocked.
     return Math.exp(-thickness*density*3.8);
   };
