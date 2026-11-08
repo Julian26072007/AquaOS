@@ -103,6 +103,7 @@ let previewWeatherData=null,previewNatural=null,previewWeatherNow=null;
 let preview=null,previewRenderer=null,previewFrame=0,previewLast=null,previewDiagnosticsAt=0;
 function renderPreview(){
   const state=preview.snapshot();previewRenderer.setLighting(state.preset);
+  if(state.date)$('preview-date').value=state.date;
   showWeatherStatus('preview-weather-status',previewWeatherData&&state.date?apiWeatherAt(epochForZoned(state.date,state.minutes,previewNatural.timezone),previewWeatherData,previewWeatherNow):null,previewRenderer.preset,{fallback:state.weather?.source==='estimated',simulation:state.weather?.source==='simulation'});
   $('preview-timeline').value=state.minutes;$('preview-timeline').setAttribute('aria-valuetext',`${formatTime(state.minutes)}, ${state.phase}`);
   text('preview-time',formatTime(state.minutes));text('preview-phase',state.phase+(state.astronomy&&state.phase==='Moonlight'?' · '+state.astronomy.moonLabel:''));

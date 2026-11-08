@@ -11,17 +11,17 @@ export const DEFAULT_ASSEMBLIES=Object.freeze([
   Object.freeze({id:'front',y:.78,gain:1,rgb:Object.freeze([1,1,1]),warmWhite:.42,coolWhite:.58}),
 ]);
 export class LightingEngine {
-  constructor(seed=7319){this.clouds=createCloudField(seed);this.caustics=createCaustics(seed+13);this.lightning=createLightning(seed+37);this.wind={x:0,y:0,vx:.023,vy:.011,last:0};}
+  constructor(seed=7319){this.clouds=createCloudField(seed);this.caustics=createCaustics(seed+13);this.lightning=createLightning(seed+37);}
   state(p,t,reduced=false,assemblies=DEFAULT_ASSEMBLIES){
     if(reduced)t=0;
     let motion=null;
-    if(p.wind){
-      if(!reduced){
-      const dt=Math.max(0,t-this.wind.last),k=1-Math.exp(-dt/20),oldX=this.wind.vx,oldY=this.wind.vy;
-      this.wind.vx+=(p.wind.x-this.wind.vx)*k;this.wind.vy+=(p.wind.y-this.wind.vy)*k;
-      this.wind.x+=(oldX+this.wind.vx)*.5*dt;this.wind.y+=(oldY+this.wind.vy)*.5*dt;this.wind.last=t;
-      }
-      motion={x:this.wind.x,y:this.wind.y,coverage:p.cloudCoverage};
+    if(p.environmentTime!==undefined){
+      // Absolute, deliberately slow pattern time; independent of playback and
+      // forecast wind changes. Weather controls optical thickness, not identity.
+      t=p.environmentTime;
+      motion={x:t*.023,y:t*.011,coverage:p.cloudCoverage};
+    }else if(p.wind){
+      motion={x:t*.023,y:t*.011,coverage:p.cloudCoverage};
     }
     const config=p.lighting;
     if(p.whiteBalance!==undefined)assemblies=assemblies.map(s=>{const warmWhite=Math.max(0,Math.min(1,p.whiteBalance+s.warmWhite-.48));return {...s,warmWhite,coolWhite:1-warmWhite};});

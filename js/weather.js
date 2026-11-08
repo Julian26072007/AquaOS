@@ -29,15 +29,39 @@ export function weatherAt(epoch,data,now=epoch,{current=false}={}){
   const rows=data.hourly;
   if(!Array.isArray(rows)||rows.length<2||!rows.every((r,i)=>Number.isFinite(r?.at)&&(!i||r.at>rows[i-1].at))||epoch<rows[0].at||epoch>rows.at(-1).at)return {...FALLBACK_WEATHER};
   let lo=0,hi=rows.length-1;while(hi-lo>1){const m=(lo+hi)>>>1;if(rows[m].at>epoch)hi=m;else lo=m;}
-  const a=rows[lo],b=rows[hi],f=Math.max(0,Math.min(1,(epoch-a.at)/(b.at-a.at))),k=f*f*(3-2*f),out={source:'forecast'};
+  const a=rows[lo],b=rows[hi],f=Math.max(0,Math.min(1,(epoch-a.at)/(b.at-a.at))),k=f*f*(3-2*f),out={source:'forecast',storm:((a.code>=95?1:0)*(1-k)+(b.code>=95?1:0)*k)};
   for(const key of Object.keys(FALLBACK_WEATHER).filter(k=>k!=='source')){
     const valid=v=>typeof v==='number'&&Number.isFinite(v);
-    const av=valid(a[key])?a[key]:valid(b[key])?b[key]:(['low','mid','high'].includes(key)?null:FALLBACK_WEATHER[key]),bv=valid(b[key])?b[key]:valid(a[key])?a[key]:(['low','mid','high'].includes(key)?null:FALLBACK_WEATHER[key]);
+    // Resolve gaps at the observation, not from the active pair. Otherwise a
+    // missing hourly value can acquire a different value on either side.
+    const resolve=row=>{
+      if(valid(row[key]))return row[key];
+      let nearest=null,distance=Infinity;
+      for(const candidate of rows)if(valid(candidate[key])&&Math.abs(candidate.at-row.at)<distance){nearest=candidate[key];distance=Math.abs(candidate.at-row.at);}
+      return nearest??(['low','mid','high'].includes(key)?null:FALLBACK_WEATHER[key]);
+    };
+    const av=resolve(a),bv=resolve(b);
     if(key==='code')out[key]=k<.5?av:bv;
     else if(key==='windDirection')out[key]=(av+(((bv-av+540)%360)-180)*k+360)%360;
     else out[key]=av===null?null:av+(bv-av)*k;
   }
-  if(current&&data.current&&Math.abs(epoch-data.current.at)<30*60000){for(const key of CURRENT_FIELDS){const names={cloud_cover:'cloud',precipitation:'precipitation',rain:'rain',weather_code:'code',wind_speed_10m:'windSpeed',wind_direction_10m:'windDirection'};const name=names[key],value=data.current[name];if(typeof value==='number'&&Number.isFinite(value))out[name]=value;}out.source='current';}
+  if(current&&data.current&&Math.abs(epoch-data.current.at)<30*60000){
+    const distance=Math.abs(epoch-data.current.at)/(30*60000),weight=1-distance*distance*(3-2*distance);
+    const names=['cloud','precipitation','rain','code','windSpeed','windDirection'];
+    for(const name of names){
+      const value=data.current[name];
+      if(typeof value!=='number'||!Number.isFinite(value))continue;
+      if(name==='code'){
+        out.storm+=(Number(value>=95)-out.storm)*weight;
+        if(weight>.5)out.code=value;
+      }else if(Number.isFinite(out[name])){
+        const delta=name==='windDirection'?((value-out[name]+540)%360)-180:value-out[name];
+        out[name]+=delta*weight;
+        if(name==='windDirection')out[name]=(out[name]+360)%360;
+      }else out[name]=value;
+    }
+    out.source='current';
+  }
   // Retain the actual interpolation inputs for opt-in preview diagnostics.
   out.forecast={from:a.at,to:b.at,fraction:k,cloudFrom:a.cloud??null,cloudTo:b.cloud??null};
   return out;

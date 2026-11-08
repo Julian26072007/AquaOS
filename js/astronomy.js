@@ -3,7 +3,7 @@ const formatters=new Map(),dayCache=new Map(),dataIds=new WeakMap();let nextId=1
 export function zonedParts(epoch,timezone){
   if(!formatters.has(timezone))formatters.set(timezone,new Intl.DateTimeFormat('en-CA',{timeZone:timezone,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'}));
   const p=Object.fromEntries(formatters.get(timezone).formatToParts(new Date(epoch)).filter(p=>p.type!=='literal').map(p=>[p.type,p.value]));
-  return {date:`${p.year}-${p.month}-${p.day}`,minutes:Number(p.hour)*60+Number(p.minute)+Number(p.second)/60};
+  return {date:`${p.year}-${p.month}-${p.day}`,minutes:Number(p.hour)*60+Number(p.minute)+Number(p.second)/60+((epoch%1000)+1000)%1000/60000};
 }
 export function epochForZoned(date,minutes,timezone){
   const [year,month,day]=date.split('-').map(Number),wall=Date.UTC(year,month-1,day)+minutes*60000;

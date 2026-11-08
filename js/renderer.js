@@ -17,7 +17,7 @@ export class AquariumRenderer {
   resize(){const r=this.canvas.getBoundingClientRect();this.w=r.width;this.h=r.height;const d=Math.min(devicePixelRatio||1,2);this.canvas.width=Math.round(this.w*d);this.canvas.height=Math.round(this.h*d);this.ctx?.setTransform(d,0,0,d,0,0);}
   setPreset(p){this.previous=this.preset;this.preset=p;this.transition=this.motion.matches?1:0;this.canvas.setAttribute('aria-label',`${p.name}: ${p.description} Simulated aquarium lighting.`);this.draw();this.restart();}
   // Schedule changes replace light parameters without resetting animation time.
-  setLighting(p){this.preset=p;this.previous=p;this.transition=1;this.canvas.setAttribute('aria-label',`${p.name}: ${p.description} Simulated aquarium lighting.`);if(this.motion.matches&&!this.suspended&&!document.hidden)this.draw();}
+  setLighting(p){this.preset=p;this.previous=p;this.transition=1;this.canvas.setAttribute('aria-label',`${p.name}: ${p.description} Simulated aquarium lighting.`);if(!this.suspended&&!document.hidden)this.draw();}
   setSuspended(value){this.suspended=value;if(value)cancelAnimationFrame(this.frame);else this.restart();}
   restart(){cancelAnimationFrame(this.frame);if(this.motion.matches)this.transition=1;this.clock.reset();this.lastPaint=null;if(!document.hidden&&!this.suspended){this.draw();if(!this.motion.matches)this.frame=requestAnimationFrame(this.tick);}}
   tick(now){
