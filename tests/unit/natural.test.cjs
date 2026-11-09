@@ -9,7 +9,6 @@ test('natural domain regressions', async () => {
   const {astronomyAt,epochForZoned:epoch,zonedParts}=await import('../../js/astronomy.js');
   const {weatherAt,normalizeForecast,createWeatherProvider,forecastUrl,locationKey,MAX_WEATHER_AGE}=await import('../../js/weather.js');
   const {createStore}=await import('../../js/state.js');const {createRealLightingController,createPreviewController}=await import('../../js/controllers.js');
-  const {LightingEngine}=await import('../../js/effects.js');
   const n={...N,latitude:48.2082,longitude:16.3738,timezone:'Europe/Vienna',locationName:'Vienna'},s={...S};
   let rejectedSettings=0;
   for(const [config,policy] of [[{...n,timezone:'Fake/Zone'},s],[{...n,latitude:999},s],[n,{...s,maxBrightness:2}],[n,{...s,minDarkHours:0}]]){try{validateNatural(config,policy);}catch{rejectedSettings++;}}
@@ -41,13 +40,9 @@ test('natural domain regressions', async () => {
     fullOutput=calc(moonPeakAt,moonN,s,moonData(.5),{now:moonPeakAt}).brightness;
     newOutput=calc(moonPeakAt,moonN,s,moonData(0),{now:moonPeakAt}).brightness;
   }
-  // Safety covers visible direct + diffuse radiance; cloud cover intentionally
-  // transfers energy away from the direct red hardware-request component.
-  const daylightEngine=new LightingEngine();
-  const clearChannel=daylightEngine.sample(daylightEngine.state(clear.preset,0),.5,.5).r,stormChannel=daylightEngine.sample(daylightEngine.state(storm.preset,0),.5,.5).r;
+  assert(clear.channels.coolWhite>storm.channels.coolWhite);
   const twilightN={...n,twilightMinutes:15},twilightPlan=naturalPlan('2026-06-21',twilightN,s),twilight=calc(twilightPlan.start+8*60000,twilightN,s);
   const limit=limitRealChange(clear,{brightness:0},1,s),dark=limitRealChange(calc(plan.end+3600000,n,s),{brightness:.8},1,s);
-  const engine=new LightingEngine();const noFlash=engine.state(storm.preset,5.77).flash;
   const runtime=createNaturalRuntimeSafety();
   let r=runtime(clear,null,0,n,s);r=runtime(clear,r,1000,n,s);r=runtime({...clear,phase:'Night',brightness:0,darknessRequired:true},r,2000,n,s);const blocked=runtime(clear,r,3000,n,s);
   const resumed=runtime(clear,blocked,2000+s.minDarkHours*3600000+1,n,s);
@@ -79,25 +74,23 @@ test('natural domain regressions', async () => {
   const pending=race.refresh(n);await race.refresh(secondLocation);resolvesOld({ok:true,json:async()=>raw});await pending;
   const raceKey=race.snapshot().data.key;
   const interpolatedCloud=weatherAt(noon,normalizeForecast(raw,n,noon),noon).cloud;
-  const moving=new LightingEngine();moving.state(clear.preset,0);moving.state(storm.preset,1);const fieldReplayError=Math.abs(moving.sample(moving.state(storm.preset,1),.4,.5).transmission-moving.sample(new LightingEngine().state(storm.preset,1),.4,.5).transmission);
   const {prepareRealHardwareOutput}=await import('../../js/hardware-output.js');
-  const brightField={width:8,height:4,sample(x,y,out){return Object.assign(out,{red:1,green:1,blue:1,warmWhite:1,coolWhite:1});}};
-  const guarded0=prepareRealHardwareOutput(before,s,brightField),guarded1=prepareRealHardwareOutput({...before,at:before.at+1000},s,brightField,undefined,guarded0);
-  let rejectedPreviewField=false;try{prepareRealHardwareOutput(ps,s,brightField);}catch{rejectedPreviewField=true;}
-  const guardedMax=Math.max(...guarded1.commands.flatMap(a=>Object.values(a.channels).flat()));
+  const guarded0=prepareRealHardwareOutput(before,s),guarded1=prepareRealHardwareOutput({...before,at:before.at+1000},s,undefined,guarded0);
+  let rejectedPreviewField=false;try{prepareRealHardwareOutput(ps,s);}catch{rejectedPreviewField=true;}
+  const guardedMax=Math.max(...Object.values(guarded1.channels));
   const dst={spring:zonedParts(epoch('2026-03-29',150,n.timezone),n.timezone).minutes,autumn:zonedParts(epoch('2026-10-25',150,n.timezone),n.timezone).minutes};
   const beforeMid=calc(epoch('2026-06-21',1439.99,n.timezone),n,s),afterMid=calc(epoch('2026-06-22',.01,n.timezone),n,s);
   const targetSamples=[];for(let i=0;i<10;i++)targetSamples.push(calc(plan.start+i*.1*60000,n,s).brightness);
-  return {afterMidnightSky:afterMid.nextAstronomy.label,protectedDarkness,episodeBudget,rejectedSettings,rejectedPreviewField,guardedMax,interpolatedCloud,fieldReplayError,devicePlan,rejectedPreview,raceKey,secondKey:locationKey(secondLocation),n,s,seasons,polarTotal:polar.total,clear:clear.brightness,storm:storm.brightness,bad:bad.brightness,oldSource:old.source,wind:interp.windDirection,full:moonFull.moonFraction,newMoon:moonNew.moonFraction,moonAbove,moonBelow,moonPeak,fullOutput,newOutput,clearChannel,stormChannel,moonTotal:moonPlans.total,twilightPhase:twilight.phase,twilightLevel:twilight.brightness,slew:limit.brightness,dark:dark.brightness,noFlash,isolated,psSource:ps.source,providerCalls:calls,providerStatus:fresh.status,offlineStatus:offline.snapshot().status,offlineCached:!!offline.snapshot().data,retry:attempts,missingStatus:missing.snapshot().status,dst,midnightJump:Math.abs(beforeMid.brightness-afterMid.brightness),url:forecastUrl(n)};
+  return {afterMidnightSky:afterMid.nextAstronomy.label,protectedDarkness,episodeBudget,rejectedSettings,rejectedPreviewField,guardedMax,interpolatedCloud,devicePlan,rejectedPreview,raceKey,secondKey:locationKey(secondLocation),n,s,seasons,polarTotal:polar.total,clear:clear.brightness,storm:storm.brightness,bad:bad.brightness,oldSource:old.source,wind:interp.windDirection,full:moonFull.moonFraction,newMoon:moonNew.moonFraction,moonAbove,moonBelow,moonPeak,fullOutput,newOutput,moonTotal:moonPlans.total,twilightPhase:twilight.phase,twilightLevel:twilight.brightness,slew:limit.brightness,dark:dark.brightness,isolated,psSource:ps.source,providerCalls:calls,providerStatus:fresh.status,offlineStatus:offline.snapshot().status,offlineCached:!!offline.snapshot().data,retry:attempts,missingStatus:missing.snapshot().status,dst,midnightJump:Math.abs(beforeMid.brightness-afterMid.brightness),url:forecastUrl(n)};
  })();
  for(const row of result.seasons){assert(row.total<=540);assert(row.active<=540);assert(row.max<=.8);assert(row.darkGap>=12-1e-6);assert(Number.isFinite(row.sunrise));assert(Number.isFinite(row.sunset));}
  assert.equal(result.afterMidnightSky,'Sunrise');
  assert(result.protectedDarkness);assert(result.episodeBudget);
  assert.equal(result.rejectedSettings,4);
  assert(result.rejectedPreviewField);assert(result.guardedMax<=.02/60+1e-9);
- assert.equal(result.interpolatedCloud,50);assert.equal(result.fieldReplayError,0);
+ assert.equal(result.interpolatedCloud,50);
  assert(result.rejectedPreview);assert.equal(result.devicePlan.lightning,false);assert.equal(result.devicePlan.onExpiry,'off');assert.equal(result.raceKey,result.secondKey);
- assert(result.polarTotal<=540);assert(result.storm>=result.clear*.75-1e-6);assert(result.storm<result.clear);assert(Number.isFinite(result.bad));assert.equal(result.oldSource,'estimated');assert(result.wind<2||result.wind>358);assert(result.full>.99);assert(result.newMoon<.001);assert(result.moonBelow>0);assert(result.moonAbove>0);assert(result.moonPeak>0&&result.moonPeak<=.001);assert(result.fullOutput>0);assert.equal(result.newOutput,0);assert(result.stormChannel>=result.clearChannel*.75-1e-6);assert(result.moonTotal<=540);assert.equal(result.twilightPhase,'Twilight');assert(result.twilightLevel>0&&result.twilightLevel<=.003);assert(result.slew<=.02/60+1e-9);assert.equal(result.dark,0);assert.equal(result.noFlash,0);assert(result.isolated);assert.equal(result.psSource,'preview');assert.equal(result.providerCalls,1);assert.equal(result.providerStatus,'fresh');assert.equal(result.offlineStatus,'offline');assert(result.offlineCached);assert.equal(result.retry,2);assert.equal(result.missingStatus,'offline');assert.equal(result.dst.spring,210);assert.equal(result.dst.autumn,150);assert(result.midnightJump<.001);
+ assert(result.polarTotal<=540);assert(result.storm>=result.clear*.75-1e-6);assert(result.storm<result.clear);assert(Number.isFinite(result.bad));assert.equal(result.oldSource,'estimated');assert(result.wind<2||result.wind>358);assert(result.full>.99);assert(result.newMoon<.001);assert(result.moonBelow>0);assert(result.moonAbove>0);assert(result.moonPeak>0&&result.moonPeak<=.001);assert(result.fullOutput>0);assert.equal(result.newOutput,0);assert(result.moonTotal<=540);assert.equal(result.twilightPhase,'Twilight');assert(result.twilightLevel>0&&result.twilightLevel<=.003);assert(result.slew<=.02/60+1e-9);assert.equal(result.dark,0);assert(result.isolated);assert.equal(result.psSource,'preview');assert.equal(result.providerCalls,1);assert.equal(result.providerStatus,'fresh');assert.equal(result.offlineStatus,'offline');assert(result.offlineCached);assert.equal(result.retry,2);assert.equal(result.missingStatus,'offline');assert.equal(result.dst.spring,210);assert.equal(result.dst.autumn,150);assert(result.midnightJump<.001);
  console.log(JSON.stringify({seasonWindows:result.seasons.map(s=>({date:s.date,hours:s.total/60,darkHours:s.darkGap})),stormRatio:result.storm/result.clear,fullMoon:result.fullOutput,newMoon:result.newOutput,perChannelStep:result.guardedMax,dst:result.dst,previewRejected:result.rejectedPreview&&result.rejectedPreviewField},null,2));
 
 });

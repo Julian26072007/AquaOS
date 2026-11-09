@@ -1,3 +1,4 @@
+import {OFF,scaleChannels} from './lighting.js';
 export const DEFAULT_SAFETY=Object.freeze({maxPhotoperiodHours:9,maxBrightness:.8,minDarkHours:12,minWeatherFactor:.75,maxChangePerMinute:.02,moonlightCap:.002});
 export function validateSafety(p){
   const ranges={maxPhotoperiodHours:[1,16],maxBrightness:[0,1],minDarkHours:[8,23],minWeatherFactor:[.5,1],maxChangePerMinute:[.001,.2],moonlightCap:[0,.01]};
@@ -16,7 +17,7 @@ export function safeBudget(config,policy,sunHours=12){
 export function constrainTarget(result,policy){
   const brightness=Math.max(0,Math.min(Number.isFinite(result.brightness)?result.brightness:0,policy.maxBrightness,result.darknessRequired?0:1,result.phase==='Moonlight'?policy.moonlightCap:1));
   const ratio=result.brightness>0?brightness/result.brightness:0;
-  return {...result,brightness,preset:{...result.preset,lighting:{...result.preset.lighting,ambient:result.preset.lighting.ambient*ratio,direct:result.preset.lighting.direct*ratio}}};
+  return {...result,brightness,channels:scaleChannels(result.channels,ratio)};
 }
 /** Actual-clock output slew, never called with preview time. Unknown output starts
  * off. Protected darkness and hard ceilings override a soft slew-down limit. */
@@ -26,15 +27,14 @@ export function limitRealChange(target,previous,elapsedSeconds,policy){
   let brightness=Math.max(old-limit,Math.min(old+limit,target.brightness));
   if(target.darknessRequired)brightness=0;
   brightness=Math.min(brightness,policy.maxBrightness,target.phase==='Moonlight'?policy.moonlightCap:1);
-  // Scale the target shape to the controlled brightness, also during fade-down.
-  const base=target.preset.lighting;
-  return {...target,brightness,ramping:Math.abs(brightness-target.brightness)>.001,preset:{...target.preset,lighting:{...base,ambient:brightness*(target.brightness>0?base.ambient/target.brightness:.44),direct:brightness*(target.brightness>0?base.direct/target.brightness:.68)}}};
+  return {...target,brightness,ramping:Math.abs(brightness-target.brightness)>.001,
+    channels:target.brightness>0?scaleChannels(target.channels,brightness/target.brightness):OFF};
 }
 /** Live episode history prevents a weather/config refresh moving a window from
  * extending an already-running day or reopening a protected dark period. */
 export function createNaturalRuntimeSafety(){
   let episodeStart=null,darkUntil=0,lastAt=null;
-  function dark(target,reason){return {...target,phase:'Night',brightness:0,darknessRequired:true,policyReason:reason,preset:{...target.preset,name:'Night',description:reason,cloudDensity:0,lighting:{...target.preset.lighting,ambient:0,direct:0,caustics:0}}};}
+  function dark(target,reason){return {...target,phase:'Night',brightness:0,darknessRequired:true,policyReason:reason,preset:{...target.preset,name:'Night',description:reason},channels:OFF};}
   return (target,previous,at,config,policy)=>{
     const seconds=lastAt===null?0:Math.max(0,(at-lastAt)/1000);
     if(lastAt!==null&&at<lastAt){darkUntil=Math.max(darkUntil,lastAt+policy.minDarkHours*3600000);target=dark(target,'Clock changed');}

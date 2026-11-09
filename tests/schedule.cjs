@@ -10,14 +10,14 @@ const {launchBrowser,testUrl}=require('./browser-helpers.cjs');const assert=requ
  }
  await page.setViewportSize({width:390,height:664});const liveName=await page.locator('#preset-name').textContent();
  await page.evaluate(async()=>{
-  const {LightingPass}=await import('./js/effects.js');const original=LightingPass.prototype.prepare;
-  window.testCloudTimes=[];LightingPass.prototype.prepare=function(...args){window.testCloudTimes.push(args[3]);return original.apply(this,args);};
+  const {AquariumRenderer}=await import('./js/renderer.js');const original=AquariumRenderer.prototype.draw;
+  window.testSceneTimes=[];AquariumRenderer.prototype.draw=function(){if(this.canvas.id==='preview-scene')window.testSceneTimes.push(this.clock.elapsed);return original.call(this);};
  });
  await page.locator('#preview-open').click();await page.locator('#preview-timeline').fill('450');assert.equal(await page.locator('#preview-time').textContent(),'07:30');assert.equal(await page.locator('#preview-phase').textContent(),'Sunrise');
  await page.locator('#preview-speed').selectOption('1440');await page.locator('#preview-play').click();await page.waitForTimeout(1000);await page.locator('#preview-play').click();
  const time=await page.locator('#preview-time').textContent();assert.notEqual(time,'07:30');
- const cloudSeconds=await page.evaluate(()=>Math.max(...window.testCloudTimes)-Math.min(...window.testCloudTimes));
- assert(cloudSeconds>.4&&cloudSeconds<4,'1440x schedule playback must not accelerate cloud animation');
+ const sceneSeconds=await page.evaluate(()=>Math.max(...window.testSceneTimes)-Math.min(...window.testSceneTimes));
+ assert(sceneSeconds>.4&&sceneSeconds<4,'1440x schedule playback keeps decorative motion on its own clock');
  await page.screenshot({path:'/tmp/aquaos-day-preview.png',fullPage:true});
  for(const [minute,phase] of [[450,'sunrise'],[720,'daylight'],[1170,'sunset'],[1380,'night']]){
   await page.locator('#preview-timeline').fill(String(minute));await page.waitForTimeout(100);
@@ -31,5 +31,5 @@ const {launchBrowser,testUrl}=require('./browser-helpers.cjs');const assert=requ
  await page.locator('#settings-open').click();await page.locator('#sunset-start').fill('07:00');await page.locator('[type=submit]').click();assert(await page.locator('#schedule-error').textContent());
  await page.locator('#sunset-start').fill('17:30');await page.locator('[type=submit]').click();await page.waitForTimeout(50);assert.equal(await page.locator('#settings-dialog').evaluate(d=>d.open),false);
  await page.reload();await page.locator('#settings-open').click();assert.equal(await page.locator('#sunset-start').inputValue(),'17:30');
- assert.deepEqual(errors,[]);console.log('PASS: automatic layouts/settings, mode persistence, preview controls/storage isolation and independent cloud speed.');await browser.close();
+ assert.deepEqual(errors,[]);console.log('PASS: automatic layouts/settings, mode persistence, preview controls/storage isolation and independent decorative animation.');await browser.close();
 })().catch(e=>{console.error(e);process.exit(1)});

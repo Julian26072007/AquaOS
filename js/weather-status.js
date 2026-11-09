@@ -26,8 +26,8 @@ function providerLabel(code){
 }
 export function weatherStatus(api,preset,{fallback=false,simulation=false,cached=false}={}){
   const apiText=api?`${providerLabel(api.code)}${Number.isFinite(api.cloud)?` · ${Math.round(api.cloud)}% clouds`:''} · ${api.source==='current'?'Current':'Forecast'}${cached?' (cached)':''}`:'Unavailable';
-  // Natural presets carry the condition description and coverage consumed by
-  // LightingEngine. Scheduled presets have no weather condition contract.
+  // Natural presets carry the condition description and coverage used by
+  // the global lighting model. Scheduled presets have no weather condition contract.
   const applied=preset?.id==='natural'&&typeof preset.description==='string'?preset.description.split(' · ')[0]:'Unavailable';
   const coverage=Number.isFinite(preset?.cloudCoverage)?` · ${Math.round(preset.cloudCoverage*100)}% clouds`:'';
   return {api:`API: ${apiText}`,applied:`Applied: ${applied}${coverage}${simulation?' · Developer simulation':fallback?' · Fallback (estimated)':''}`};

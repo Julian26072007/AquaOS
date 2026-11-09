@@ -1,5 +1,7 @@
 # Top-down light field and hardware mapping
 
+> Historical implementation notes. See the [current lighting model](../README.md#global-lighting-and-dmx).
+
 ## Coordinates and projection
 
 `LightingEngine.sample(state, x, y)` evaluates normalized tank coordinates: x = left→right; y = rear→front. `LightField` samples that continuous model into a reusable 96×48 buffer and provides bilinear interpolation. The buffer carries RGB radiance, five conceptual source channels (`red`, `green`, `blue`, `warmWhite`, `coolWhite`), cloud transmittance, and independent rear/front source contributions. Preset transitions interpolate every field channel.

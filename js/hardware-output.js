@@ -1,20 +1,22 @@
-import {mapLightField} from './hardware-mapping.js';
+import {normalizeChannels} from './lighting.js';
+import {mapDmxChannels} from './hardware-mapping.js';
 import {validateSafety} from './safety.js';
-/** Pure future output gate; never sends commands. Only actual controller output
- * is accepted. Per-channel slew uses real timestamps, never animation/preview dt. */
-export function prepareRealHardwareOutput(real,policy,field,capabilities,previous=null){
+
+/** Future output boundary. Only real Natural output can use the safety gate.
+ * The normalized values retain full precision between calls for slew limiting. */
+export function prepareRealHardwareOutput(real,policy,mapping,previous=null){
   if(real?.source!=='real'||real.mode!=='natural'||!real.cycle||!Number.isFinite(real.at))throw new Error('Only real Natural Mode output can pass the safety gate');
-  validateSafety(policy);if(previous&&!Number.isFinite(previous.at))throw new Error('Previous output requires a real timestamp');
+  validateSafety(policy);
+  if(previous&&!Number.isFinite(previous.at))throw new Error('Previous output requires a real timestamp');
   const seconds=previous?Math.max(0,Math.min(5,(real.at-previous.at)/1000)):0;
   const step=policy.maxChangePerMinute*seconds/60;
-  const cap=Math.min(policy.maxBrightness,real.cycle.phase==='Moonlight'?policy.moonlightCap:1);
-  const commands=mapLightField(field,capabilities).map(assembly=>({id:assembly.id,channels:Object.fromEntries(Object.entries(assembly.channels).map(([channel,values])=>{
-    const old=previous?.commands?.find(a=>a.id===assembly.id)?.channels?.[channel]||[];
-    return [channel,values.map((target,i)=>{
-      if(real.cycle.darknessRequired)return 0;
-      const before=Number.isFinite(old[i])?old[i]:0;
-      return Math.max(0,Math.min(cap,Math.max(before-step,Math.min(before+step,target))));
-    })];
-  }))}));
-  return {source:'real',at:real.at,commands};
+  const cap=real.cycle.darknessRequired?0:Math.min(policy.maxBrightness,real.cycle.phase==='Moonlight'?policy.moonlightCap:1);
+  const target=normalizeChannels(real.channels),old=normalizeChannels(previous?.channels);
+  const channels=normalizeChannels(Object.fromEntries(Object.entries(target).map(([key,value])=>[
+    key,Math.min(cap,Math.max(old[key]-step,Math.min(old[key]+step,value))),
+  ])));
+  // Rounding must never produce a DMX value above a policy ceiling.
+  const maxByte=Math.floor(cap*255);
+  const dmx=Object.freeze(Object.fromEntries(Object.entries(mapDmxChannels(channels,mapping)).map(([slot,value])=>[slot,Math.min(maxByte,value)])));
+  return {source:'real',at:real.at,channels,dmx};
 }

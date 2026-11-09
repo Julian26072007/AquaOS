@@ -1,5 +1,7 @@
 # Live Weather acquisition continuity
 
+> Historical implementation notes. See the [current lighting model](../../README.md#global-lighting-and-dmx).
+
 Investigated main `21736b5` (Phase 1 and Phase 2 present). The linked Codex
 conversation was unavailable: this session exposes no `read_thread` tool.
 Evidence below comes from the checked-out source and controlled tests.

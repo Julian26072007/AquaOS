@@ -65,8 +65,6 @@ main { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 12px;
 canvas { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }
 .now { flex: 0 0 54px; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 .now h2 { margin: 0; font-size: 23px; letter-spacing: -.7px; font-weight: 500; }
-.active-label { display: flex; align-items: center; gap: 7px; font-size: 11px; color: #b3c99e; }
-.active-label i { width: 5px; height: 5px; border-radius: 50%; background: #b0d99b; }
 .presets-section { flex: 0 0 auto; }
 .section-heading { margin-bottom: 10px; }
 .section-heading h2 { font-size: 14px; font-weight: 500; margin: 0; color: #a8bdb0; }

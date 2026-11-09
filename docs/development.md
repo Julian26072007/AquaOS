@@ -14,7 +14,7 @@ node --test tests/unit/natural.test.cjs
 npm ci                                   # once, or when lockfile changes
 npx playwright install chromium           # if no system Chromium is available
 npm run test:browser -- schedule natural  # focused UI suites, automatic server
-npm run test:browser -- lighting field    # lighting/materials/renderer
+npm run test:browser -- lighting          # global lighting/materials/renderer
 npm test                                 # all unit and browser checks, once each
 ```
 
@@ -38,14 +38,14 @@ Existing screenshot diagnostics go to `/tmp/aquaos-*.png`; do not commit them.
 | `unit/schedule.test.cjs` | Phase/channel continuity, midnight schedules, validation, persistence, real/preview clock and output separation, speeds, night off |
 | `unit/natural.test.cjs` | Seasons, polar cases, DST, midnight, safety/darkness/rate limits, moon horizon/phase, weather interpolation/cache/offline/retry/races, preview rejection |
 | `browser.cjs` | Nine presets, responsive layout, touch/keyboard, dialog focus, persistence/corrupt/blocked storage, reduced motion, browser/HTTP errors |
-| `lighting.cjs` | Deterministic scene snapshots, cloud motion/continuity, caustics, lightning fixtures, animation clock, 30fps rendering budget |
-| `field.cjs` | Independent lighting axes, thermal channels, hardware capability mapping, material depth and developer map |
-| `schedule.cjs` | Automatic UI/settings, preview play/scrub/speed/Now, persistence isolation and ordinary cloud animation speed |
+| `lighting.cjs` | Nine global palettes, repeatable darkness, uniform material lighting |
+| `weather-rendering.cjs`, `live-weather.cjs` | Canvas response to weather, deterministic scrubbing and live refresh continuity |
+| `schedule.cjs` | Automatic UI/settings, preview play/scrub/speed/Now, persistence isolation and independent decorative animation clock |
 | `natural.cjs` | Mocked forecast/geocoding UI, no GPS, Natural layouts/persistence and preview isolation |
 
 Read [AGENTS.md](../AGENTS.md) for the task-to-module map. The runtime flow is
 `app.js` → store/controllers → schedule or natural/weather/astronomy/safety →
-preset → renderer/effects/light-field → scenery. Real and preview controllers
+global channels → renderer/effects → scenery. Real and preview controllers
 remain independent. Hardware mapping/output gates are pure future contracts,
 with no device communication. More details are in the existing mode documents.
 
@@ -56,7 +56,7 @@ the diff and report validation and limitations. Pure domain checks belong in
 repeating the same assertions in both. Keep browser-specific regressions where
 they test a real platform difference.
 
-## Findings and measured changes (2026-11-07)
+## Historical measurements (2026-11-07, before global lighting)
 
 Baseline: commit `8fe7657`, Node 24.22.1, system Chromium, this cloud workspace.
 Numbers are single-run wall times and vary with host load.
@@ -85,7 +85,7 @@ Numbers are single-run wall times and vary with host load.
   an automatic case-sensitive project-path server, ignored dependency/report
   artifacts and concise agent guidance. No framework or build system was added.
 
-## Verification and limits
+## Historical verification and limits
 
 All original suites passed before changes. The final unit and all five browser
 suites passed. The original domain calculations/assertions were mechanically

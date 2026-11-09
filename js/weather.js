@@ -1,4 +1,3 @@
-import {cloudDisplacement} from './weather-environment.js';
 import {zonedParts} from './astronomy.js';
 export const WEATHER_TTL=15*60*1000,MAX_WEATHER_AGE=24*60*60*1000;
 export const CURRENT_FIELDS=['cloud_cover','precipitation','rain','snowfall','weather_code','wind_speed_10m','wind_direction_10m'];
@@ -63,7 +62,7 @@ export function weatherAt(epoch,data,now=epoch,{current=false}={}){
         const delta=name==='windDirection'?((value-out[name]+540)%360)-180:value-out[name];
         out[name]+=delta*weight;
         if(name==='windDirection')out[name]=(out[name]+360)%360;
-      }else out[name]=value;
+      }else out[name]=name==='snowfall'?value*weight:value;
     }
     out.source='current';
   }
@@ -99,7 +98,6 @@ export function createWeatherProvider({fetcher=fetch,storage,now=Date.now,onChan
           if(response.status===400){const url=new URL(forecastUrl(location));url.searchParams.set('daily','sunrise,sunset');response=await fetcher(url,{signal:requestAbort.signal});}
           if(!response.ok)throw new Error(`Weather HTTP ${response.status}`);
           const data=normalizeForecast(await response.json(),location,now());if(token!==generation)return snapshot;
-          if(snapshot.data){const at=now(),position=cloudDisplacement(at,snapshot.data,FALLBACK_WEATHER);data.windAnchor={at,...position};}
           try{storage?.setItem('aquaos.weather.v1:'+key,JSON.stringify(data));}catch{}
           publish({status:'fresh',data});
         }catch{if(token===generation)publish({status:'offline',data:snapshot.data});}
