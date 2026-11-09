@@ -14,12 +14,6 @@ export function createScenery(random=Math.random) {
     })),
     bubbles:Array.from({length:13},()=>({x:random(),y:random(),size:range(.7,1.8),speed:range(.018,.035)})),
   };
-  // World depth is explicit metadata, independent of vertical screen position.
-  // Derive it without consuming more random values, preserving the artwork seed.
-  scene.rocks.forEach(r=>r.worldY=.3+Math.abs(r.tilt)*.7);
-  scene.plants.forEach(p=>p.worldY=(p.back?.12:.7)+p.phase/(Math.PI*2)*.17);
-  scene.fish.forEach(f=>f.worldY=(f.depth-.65)/.35);
-  scene.bubbles.forEach(b=>b.worldY=.45);
   return scene;
 }
 
@@ -27,8 +21,7 @@ export function paintRocks(c,w,h,scene,lighting){
   for(const r of scene.rocks){
     const x=r.x*w,y=r.y*h,size=r.size*Math.min(w,h);
     const g=c.createLinearGradient(x-size,y-size,x+size,y+size);
-    const depth=r.worldY;
-    g.addColorStop(0,lighting.color('#526055',r.x,depth,(y-size)/h));g.addColorStop(1,lighting.color('#162f2b',r.x,depth,(y+size)/h));c.fillStyle=g;
+    g.addColorStop(0,lighting.color('#526055'));g.addColorStop(1,lighting.color('#162f2b'));c.fillStyle=g;
     c.beginPath();c.ellipse(x,y,size*1.4,size,r.tilt,0,Math.PI*2);c.fill();
   }
 }
@@ -44,8 +37,7 @@ export function paintPlants(c,w,h,t,scene,back,lighting){
     const tip=x+sway+Math.sin(p.phase)*unit*.04;
     c.save();c.globalAlpha=back?.58:.95;
     const material=(back?['#326451','#39654b','#2c594c']:['#3d7954','#568452','#28694e'])[p.shade];
-    const depth=p.worldY;
-    c.fillStyle=lighting.gradient(c,material,p.x,depth,base-height,base,h);
+    c.fillStyle=lighting.color(material);
     c.strokeStyle=c.fillStyle;
     if(p.type===0){
       // Long vallisneria ribbons.
@@ -85,8 +77,7 @@ export function paintFish(c,w,h,t,scene,lighting){
     const turn=.3+.7*Math.min(1,Math.abs(Math.cos(phase))*5);
     c.save();c.translate(x,y);c.scale(direction*turn,1);c.globalAlpha=.55+f.depth*.4;
     const palettes=[['#81c6c0','#d97b65'],['#d7b66f','#c78148'],['#b1c9b2','#789b84']];
-    const depth=f.worldY; // independent of the fish's screen height
-    const lit=hex=>lighting.color(hex,x/w,depth,y/h);
+    const lit=hex=>lighting.color(hex);
     const [body,tail]=palettes[f.type].map(lit);const beat=Math.sin(t*7+f.phase);
     c.fillStyle=tail;c.beginPath();c.moveTo(-size*.65,0);c.lineTo(-size*(1.3+beat*.08),-size*.38);c.quadraticCurveTo(-size*(1.1-beat*.1),0,-size*1.3,size*.38);c.closePath();c.fill();
     c.fillStyle=body;c.beginPath();c.ellipse(0,0,size,size*(f.type===1?.48:.32),0,0,Math.PI*2);c.fill();
@@ -98,5 +89,5 @@ export function paintFish(c,w,h,t,scene,lighting){
 
 export function paintBubbles(c,w,h,t,scene,lighting){
   c.lineWidth=.7;
-  for(const b of scene.bubbles){const y=1-((b.y+t*b.speed)%1),x=b.x*w+Math.sin(t+b.y*20)*3;c.strokeStyle=lighting.color('#daeee137',x/w,b.worldY,y);c.beginPath();c.arc(x,y*h,b.size,0,Math.PI*2);c.stroke();}
+  for(const b of scene.bubbles){const y=1-((b.y+t*b.speed)%1),x=b.x*w+Math.sin(t+b.y*20)*3;c.strokeStyle=lighting.color('#daeee137');c.beginPath();c.arc(x,y*h,b.size,0,Math.PI*2);c.stroke();}
 }

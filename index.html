@@ -17,13 +17,19 @@
       <section class="preview-section" aria-label="Aquarium lighting preview">
         <div class="tank"><canvas id="scene" role="img" aria-label="Simulated aquarium lighting"></canvas></div>
         <div id="weather-status" class="weather-status" hidden><span aria-hidden="true">☁</span><div><p id="weather-api">API: Unavailable</p><p id="weather-applied">Applied: Unavailable</p></div></div>
-        <div class="now"><div><h2 id="preset-name">Sunny</h2><p id="cycle-meta" class="cycle-meta" hidden></p><p id="preset-description" class="sr-only">Bright, natural daylight.</p></div><span id="manual-status" class="active-label"><i></i> Selected</span><button id="preview-open" class="quiet-button" type="button" aria-haspopup="dialog" hidden>Preview day</button></div>
+        <div class="now"><div><h2 id="preset-name">Sunny</h2><p id="cycle-meta" class="cycle-meta" hidden></p><p id="preset-description" class="sr-only">Bright, natural daylight.</p></div><button id="manual-status" class="quiet-button" type="button" aria-haspopup="dialog">Channels</button><button id="preview-open" class="quiet-button" type="button" aria-haspopup="dialog" hidden>Preview day</button></div>
       </section>
       <section class="presets-section" aria-labelledby="presets-heading"><div class="section-heading"><h2 id="presets-heading">Presets</h2></div><div class="preset-grid" id="presets"></div></section>
       <p id="announcement" class="sr-only" role="status" aria-live="polite"></p>
       <noscript><p>Please enable JavaScript to explore the lighting presets.</p></noscript>
     </main>
   </div>
+  <dialog id="manual-dialog" aria-labelledby="manual-title">
+    <div class="dialog-heading"><h2 id="manual-title">Manual channels</h2><button id="manual-close" class="settings-button" type="button" aria-label="Close manual channels">✕</button></div>
+    <p class="simulation-note">Set one level per color for the whole aquarium.</p>
+    <div id="manual-channels"></div>
+    <button id="manual-apply" class="quiet-button save-button" type="button">Apply channels</button>
+  </dialog>
   <dialog id="settings-dialog" aria-labelledby="settings-title" aria-describedby="settings-note">
     <div class="dialog-heading"><h2 id="settings-title">Settings</h2><button id="settings-close" class="settings-button" type="button" aria-label="Close settings">✕</button></div>
     <p id="settings-note">Automatic daily cycle · local time</p>

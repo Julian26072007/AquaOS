@@ -19,15 +19,15 @@ flowchart TD
   RAF --> Sheet
 ```
 
-`calculateLightingAtTime(time, schedule, settings)` has no clock, storage, renderer or hardware dependency. It accepts a local Date or minutes since midnight and returns phase, brightness, next transition and a preset-shaped lighting configuration for the existing 2D engine.
+`calculateLightingAtTime(time, schedule, settings)` has no clock, storage, renderer or hardware dependency. It accepts a local Date or minutes since midnight and returns phase, brightness, next transition and five global channel levels.
 
-`createRealLightingController` owns a private actual-clock provider (Date by default). Only its `subscribeRealOutput` port is an allowed future hardware source. It samples persisted state and emits `{source:'real', at, mode, preset, cycle}`. There is no clock setter. Tests inject a fixed real clock to prove preview actions cannot move it. The app samples the actual clock every 250 ms and immediately after real state changes/visibility restoration; automatic transitions use fractional minutes. Rendering does not produce controller commands.
+`createRealLightingController` owns a private actual-clock provider (Date by default). Only its `subscribeRealOutput` port is an allowed future hardware source. It samples persisted state and emits `{source:'real', at, mode, preset, cycle, channels}`. There is no clock setter. Tests inject a fixed real clock to prove preview actions cannot move it. The app samples the actual clock every 50 ms and immediately after real state changes/visibility restoration; automatic transitions use fractional minutes. Rendering does not produce controller commands.
 
 `createPreviewController` accepts an immutable copy of schedule/settings and owns its own simulated minutes, playing flag and speed. It accepts **no hardware callback, real controller reference, store or persistence writer** and exposes no real-output subscription. Its output is tagged `source:'preview'`. Scrub, speed, Play/Pause, loop and Now operate on this private clock only. Opening/closing the sheet creates/destroys the simulation renderer and suspends/resumes the covered main canvas; it does not sample or publish real controller output. Independent real-controller ticks continue normally while the sheet is open.
 
-The same `AquariumRenderer`, scene metadata, `LightingPass` and 2D field are reused. The preview shares the existing scene geometry but owns its renderer and animation clock. Schedule updates use `setLighting`, which does not reset or replace the renderer's elapsed animation seconds. Playback advances `simulatedMinutes += elapsedSeconds * speed / 60`; the cloud engine still receives plain elapsed seconds. Pausing stops schedule playback while normal water/fish/cloud animation may continue. Reduced motion freezes environmental animation; explicit Play can still demonstrate schedule changes. Hidden-tab gaps are excluded from preview playback. Closing discards all preview state and resumes the main scene at its current real lighting configuration.
+The same `AquariumRenderer`, scene metadata, `LightingPass` and global channels are reused. The preview shares the existing scene geometry but owns its renderer and animation clock. Schedule updates use `setLighting`, which does not reset or replace the renderer's elapsed animation seconds. Playback advances `simulatedMinutes += elapsedSeconds * speed / 60`; weather variation also follows simulated time. Pausing stops schedule playback while decorative fish, plants and bubbles may continue. Reduced motion freezes the decorative scene; explicit Play can still demonstrate schedule changes. Hidden-tab gaps are excluded from preview playback. Closing discards all preview state and resumes the main scene at its current real lighting configuration.
 
-No hardware communication is implemented. A future bridge must subscribe only to real output, generate/map a real field at an appropriate hardware rate and enforce verified capabilities and electrical limits. It must never read a renderer's field, canvas, preview state or simulated time. The current application does not import or invoke a hardware adapter.
+No hardware communication is implemented. A future bridge must subscribe only to real output, map the global output at an appropriate hardware rate and enforce verified limits. It must never read the canvas, preview state or simulated time. The current application does not import or invoke a hardware adapter.
 
 ## Daily schedule
 
@@ -68,7 +68,7 @@ Run all four suites from README. `tests/schedule.cjs` checks:
 - Invalid/overlapping schedules, night-off mapped channels, optional moonlight and persistence.
 - Separate real and preview outputs using a fixed actual clock and a spy on the real-output subscriber.
 - 60×/360×/1440× advancement, pause and looping without store writes or real-clock changes.
-- Actual renderer time arguments staying in ordinary seconds during 1440× UI playback.
+- Decorative animation staying in ordinary seconds during 1440× UI playback.
 - Timeline/time/phase controls, returning to live view, manual preset fallback, schedule editing and validation.
 - Automatic-mode phone layouts at 320×480 through 430×760, plus landscape.
 

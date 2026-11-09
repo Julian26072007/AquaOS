@@ -16,29 +16,15 @@ Open http://localhost:8000. Deploy the repository root through GitHub Pages (Set
 
 - `index.html`, `styles.css`: accessible single-page UI, responsive layout and safe-area spacing.
 - `js/app.js`: preset buttons and UI wiring.
-- `js/presets.js`: immutable preset definitions and intent-level effect parameters.
-- `js/state.js`: persisted manual/automatic mode, preset, validated schedule and cycle settings; works when storage is blocked.
-- `js/schedule.js`: pure local-time daily lighting calculation and cyclic schedule validation.
-- `js/weather.js`: documented Open-Meteo forecast/geocoding requests, per-location cache, interpolation and offline fallback.
-- `js/astronomy.js`, `js/vendor/suncalc.js`: aquarium-timezone conversion and sun/moon calculations (SunCalc 1.9.0, BSD-2-Clause).
-- `js/natural.js`, `js/safety.js`: bounded natural targets, photoperiod/darkness budgets, rate and brightness limits.
-- `js/hardware-output.js`, `js/device-plan.js`: pure future output gate and serializable autonomous-plan draft; reject preview sources and perform no communication.
-- `js/controllers.js`: independent real-clock lighting controller and simulation-only preview controller. Preview accepts no output or persistence callback.
-- `js/effects.js`: two broad conceptual assemblies, lighting state, material illumination and water projection.
-- `js/light-field.js`: reusable 96×48 top-down field with bilinear sampling, conceptual RGB/white channels and front/rear contributions.
-- `js/hardware-mapping.js`: capability-based averaging into uniform or segmented channels; no device communication.
-- `dev/light-map.html`: developer-only overhead illumination/cloud map, separate from the normal interface.
-- `js/noise.js`, `js/clouds.js`: cached noise lattice, layered fBm, smooth cloud transmittance and slow coverage variation.
-- `js/caustics.js`: independent, warped refractive highlights, attenuated by cloud transmittance.
-- `js/timing.js`: timestamp-based visible animation clock and deterministic irregular lightning events.
-- `js/scenery.js`: randomized per-visit aquascape, three plant varieties, rocks, schooling and independent fish, and rising bubbles. Geometry stays stable on resize and preset changes; fish proportions follow the shorter canvas edge.
-- `js/renderer.js`: responsive Canvas scene, 30fps cap, DPR capped at 2, hidden-tab suspension and live reduced-motion support. Reduced motion renders a still scene and disables lightning.
-- `js/hardware.js`: simulation-only adapter contract. No network commands or real device control.
-- `tests/unit/`: browser-free schedule, safety, weather, astronomy and controller regressions.
-- `tests/*.cjs`: browser, rendering and mode UI regressions (development only).
-- `scripts/test-browser.mjs`: focused suite runner with an automatic project-path server.
+- `js/lighting.js`, `js/presets.js`: normalized output, shared palettes and the nine existing presets.
+- `js/schedule.js`, `js/environment.js`, `js/natural.js`: fixed schedules, manual presets and astronomy/weather targets.
+- `js/weather.js`, `js/weather-environment.js`, `js/live-environment.js`: forecast interpolation, deterministic cloud variation and live acquisition continuity.
+- `js/controllers.js`, `js/state.js`, `js/safety.js`: separate live/preview clocks, persisted settings and Natural safety policy.
+- `js/renderer.js`, `js/effects.js`, `js/scenery.js`: Canvas aquarium and uniform display tint from the channel levels.
+- `js/hardware-mapping.js`, `js/hardware-output.js`, `js/device-plan.js`: configurable DMX mapping, future output gate and autonomous plan draft.
+- `tests/`, `scripts/test-browser.mjs`: domain and browser regressions served under the GitHub Pages project path.
 
-Presets: Sunny, Clouds, Sunrise, Sunset, Storm, Moonlight, Waves, Rainbow and Sparkle. The selected preset persists on this browser. The preview is artistic, not a calibrated prediction of physical LED output. Normal presets, including Storm, have lightning disabled. Test fixtures explicitly opt in to exercise the dormant flash engine. Reduced motion freezes environmental animation.
+Presets are Sunny, Clouds, Sunrise, Sunset, Storm, Moonlight, Waves, Rainbow and Sparkle. Manual **Channels** opens five sliders. Applying the levels saves a custom manual mix locally. Selecting a preset returns to that preset's palette. Reduced motion freezes fish, plants and bubbles while lighting still follows the selected mode.
 
 ## Verification
 
@@ -56,7 +42,7 @@ npx playwright install chromium # only if system Chromium is unavailable
 npm test
 ```
 
-`npm test` runs the unit suite and all five browser suites, starting and stopping
+`npm test` runs the unit suite and all six browser suites, starting and stopping
 its own temporary server at a case-sensitive `/AquaOS/` project path. There is no
 build step. Run one or more focused browser suites with
 `npm run test:browser -- schedule natural`, or one domain with
@@ -74,7 +60,7 @@ Chromium emulation does not replace physical iPhone/Safari testing.
 
 Choose **Automatic** to follow local browser time, or **Manual** to use the existing preset grid. Tapping a preset returns to Manual without changing the schedule. New/legacy installs remain Manual until Automatic is selected. Use the gear button to configure sunrise/sunset starts and durations, daytime brightness and optional very dim moonlight. Default phases are 06:00–09:00 sunrise, 09:00–18:00 daylight, 18:00–21:00 sunset, and night otherwise. Night defaults to off; optional moonlight is capped at 5% conceptual intensity.
 
-**Preview day** opens a simulation sheet with the same aquarium artwork/renderer, a 24-hour slider, Play/Pause, 60×/360×/1440× playback and Now. One full cycle takes 24 minutes, 4 minutes or 1 minute respectively. Scrubbing and playback affect only the preview; clouds use ordinary elapsed animation time. Preview state is discarded on closing and never saved. The main real-clock controller continues while its covered canvas is suspended.
+**Preview day** opens a simulation sheet with the same aquarium artwork/renderer, a 24-hour slider, Play/Pause, 60×/360×/1440× playback and Now. One full cycle takes 24 minutes, 4 minutes or 1 minute respectively. Scrubbing and playback affect only the preview; global weather variation follows simulation time while the aquarium scene keeps its own animation clock. Preview state is discarded on closing and never saved. The main real-clock controller continues while its covered canvas is suspended.
 
 See [schedule and preview architecture](docs/automatic-cycle.md) for persistence, validation, local-time behavior, tests and the strict future hardware boundary.
 
@@ -84,27 +70,21 @@ Choose **Natural** and set the aquarium's city (manual search) or coordinates an
 
 Unknown Natural output starts at off and ramps gradually; the main status says **Ramping**. At the default limit, reaching 80% from off takes about 40 minutes. The daily preview shows the planned cycle immediately without changing live state. The safety layer may extend requested ramps or reduce peak brightness to fit limits. Manual and fixed Automatic modes remain explicit user-controlled modes; these new policy limits constrain Natural Mode.
 
-Current/forecast weather refreshes every 15 minutes with per-location caching. Offline, recent forecasts are reused for at most 24 hours before neutral estimated weather takes over; astronomy works locally. Natural preview adds an aquarium-date selector and uses forecast interpolation, with estimated weather clearly labeled outside coverage. Cloud motion stays at normal animation speed at 60×/360×/1440× schedule playback. **No preview action can reach hardware output.**
+Current/forecast weather refreshes every 15 minutes with per-location caching. Offline, recent forecasts are reused for at most 24 hours before neutral estimated weather takes over; astronomy works locally. Natural preview adds an aquarium-date selector and uses forecast interpolation, with estimated weather clearly labeled outside coverage. Global weather and sunlight follow the selected simulation time at every preview speed. **No preview action can reach hardware output.**
 
 Read [Natural Mode architecture, verified API fields and safety policy](docs/natural-mode.md) for limitations and future standalone-controller requirements. Percentages are controller levels, not measured lux or a guarantee of biological equivalence to moonlight.
 
-## Lighting model
+## Global lighting and DMX
 
-The UI and aquarium artwork are unchanged. Illumination is a top-down field `light(x, y, time)`: x runs left-to-right, y runs rear-to-front, both normalized to 0–1. Screen height is **not** tank depth. A separate z coordinate measures distance below the water surface for attenuation. The 96×48 field exposes simulated radiance, conceptual RGB/warm-white/cool-white requests, cloud transmittance and independent front/rear source contributions.
+The aquarium wiring groups each color across the two DMX4ALL 90-3503 MaxiRGB dimmers. AquaOS outputs exactly five levels in the range 0–1. Cloud openings, rain, snow, haze, wind and solar elevation change this one mix for the whole tank. The renderer uses the mix to tint the existing aquarium artwork.
 
-The rear and front assemblies sit at y = 0.22 and 0.78 in this conceptual model. Their broad influence overlaps across the tank rather than producing spotlights. Independent gains, RGB multipliers and white-channel strengths can differ. Cloud transmittance varies over both overhead axes; two noise layers move diagonally at slightly different velocities, with slow coverage changes. Smooth cloud masks are cached at 40×24 and sampled into the finer field. A diffuse baseline preserves visibility under cloud cover; no radial/conical source masks are drawn.
+| Output | Default DMX slot |
+| --- | --- |
+| Red | 1 |
+| Green | 2 |
+| Blue | 3 |
+| Warm White | 4 |
+| Cool White | 5 |
+| Unused | 6 |
 
-Each plant, fish, rock and bubble has approximate `worldY` metadata independent of its screen height. Materials sample the shared field at their x/worldY location. The water/back wall samples a fixed rear plane; screen height only attenuates light through the water. Only the visible floor uses a perspective mapping from rearward substrate to front glass. It receives a clipped spatial light map, including left/right differences.
-Independent noise ridges create subtle water caustics. Their energy falls with blocked sunlight. A low-energy scattering pass adds water depth without cones. Sunrise increases asymptotically over about 90 seconds of visible simulation time, sunset decreases over about 100 seconds; both settle without an obvious loop. Storm has irregularly spaced, sometimes paired global flashes. Moonlight stays cool and dim; Rainbow gently cycles color and Sparkle uses low-amplitude highlights. All animation shares elapsed visible time, so dropped frames do not slow cloud travel. Hidden tabs pause the clock; reduced motion produces a still frame and no lightning.
-
-Field/image buffers are reused, cloud noise is generated only at reduced resolution, and the rear wall reuses one overhead sample per column. No full-resolution CPU pixel loop is used. See [2D lighting and mapping](docs/2d-lighting.md) for developer visualization, capability examples, validation and physical limitations. The [previous lighting validation](docs/lighting-validation.md) records the earlier screen-space implementation.
-
-## Hardware boundary and next steps
-
-Two LED bars are planned, each described as RGB (5 wires), warm white (2 wires) and cold white (2 wires), currently using two LiWeBe 3.0.24 controllers. Voltage, pinout, driver protocol, channel mapping and addressability are **unverified**. Wire counts do not establish compatibility. Do not connect the bars directly to ESP32 GPIO or assume individually addressable LEDs.
-
-A future adapter should implement `connect`, `applyIntent` and `disconnect`, negotiate capabilities, and translate a versioned preset intent only after electrical inspection. Add acknowledgement, connectivity/error state and state reconciliation before showing any physical device as connected. Discovery and local network control are not implemented; HTTPS browser restrictions and ESP32 transport/authentication need a deliberate design.
-
-Future custom preset editing can extend the preset registry with schema-validated local definitions and versioned migrations. Scheduling and weather should produce the same lighting intent through a separate automation service; location requires explicit opt-in. Keep these optional features out of the everyday preset screen. The header settings button opens an accessible placeholder dialog; no device or scheduling controls are implemented yet.
-
-Physical channel aggregation and two-bar mapping belong in the hardware adapter, not the canvas renderer.
+`mapDmxChannels` accepts a custom mapping and converts levels into 0–255 slot values. The separate `prepareRealHardwareOutput` gate accepts real Natural Mode samples and enforces brightness, darkness and slew limits with actual timestamps. Its quantized output respects the safety ceiling, so a moonlight limit below one DMX step produces zero. There is no hardware transport. The preview uses an artistic tint with approximate colors. Actual output levels depend on installation calibration.

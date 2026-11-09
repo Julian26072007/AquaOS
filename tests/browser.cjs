@@ -16,7 +16,7 @@ const assert = require('node:assert/strict');
  await page.setViewportSize({width:390,height:664});
  const images=new Set();
  for(const button of await page.locator('.preset').all()){
-  await button.click();await page.waitForTimeout(500);
+  await button.click();await page.waitForTimeout(1600);
   assert.equal(await button.getAttribute('aria-pressed'),'true');assert.equal(await page.locator('.preset[aria-pressed=true]').count(),1);
   assert.equal(await page.locator('#preset-name').textContent(),await button.locator('.preset-name').textContent());
   images.add(await page.locator('#scene').evaluate(c=>c.toDataURL()));
@@ -24,8 +24,26 @@ const assert = require('node:assert/strict');
  }
  assert.equal(images.size,9,'distinct preset scenes');await page.reload();await page.waitForSelector('.preset');assert.equal(await page.locator('#preset-name').textContent(),'Sparkle');
  await page.locator('[data-preset=sunny]').focus();await page.keyboard.press('Enter');assert.equal(await page.locator('#preset-name').textContent(),'Sunny');
- await page.emulateMedia({reducedMotion:'reduce'});await page.locator('[data-preset=storm]').click();const still=await page.locator('#scene').evaluate(c=>c.toDataURL());await page.waitForTimeout(600);assert.equal(await page.locator('#scene').evaluate(c=>c.toDataURL()),still);
- await page.locator('[data-preset=moonlight]').click();assert.notEqual(await page.locator('#scene').evaluate(c=>c.toDataURL()),still);
+ await page.emulateMedia({reducedMotion:'reduce'});
+ await page.waitForTimeout(1600);
+ const still=await page.locator('#scene').evaluate(c=>c.toDataURL());await page.waitForTimeout(200);
+ assert.equal(await page.locator('#scene').evaluate(c=>c.toDataURL()),still);
+ await page.locator('#manual-status').click();
+ const manual=page.locator('#manual-dialog');
+ assert(await manual.evaluate(d=>d.open));
+ assert.equal(await manual.getByRole('slider').count(),5);
+ await manual.getByLabel('Red').fill('100');
+ for(const name of ['Green','Blue','Warm White','Cool White'])await manual.getByLabel(name).fill('0');
+ await page.locator('#manual-apply').click();await page.waitForTimeout(1600);
+ assert.equal(await page.locator('#preset-name').textContent(),'Manual channels');
+ assert.equal(await page.locator('.preset[aria-pressed=true]').count(),0);
+ assert.notEqual(await page.locator('#scene').evaluate(c=>c.toDataURL()),still);
+ await page.reload();await page.locator('#manual-status').click();
+ assert.equal(await manual.getByLabel('Red').inputValue(),'100');
+ assert.equal(await manual.getByLabel('Warm White').inputValue(),'0');
+ await page.keyboard.press('Escape');assert.equal(await manual.evaluate(d=>d.open),false);
+ await page.locator('[data-preset=moonlight]').click();
+ assert.equal(await page.locator('#preset-name').textContent(),'Moonlight');
  await page.evaluate(()=>localStorage.setItem('aquaos.settings.v1','broken'));await page.reload();await page.waitForSelector('.preset');assert.equal(await page.locator('#preset-name').textContent(),'Sunny');
  // The scenery stays stable on resize but changes on a new page load.
  const canvasImage=()=>page.locator('#scene').evaluate(c=>c.toDataURL());

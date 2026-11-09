@@ -1,5 +1,5 @@
-// Cached lattice values; interpolation is continuous in space and time.
-// A 256-cell period is many hours of cloud travel, not a short animation loop.
+// A cached lattice provides smooth seeded variation over time. Each weather
+// phenomenon samples a fixed lane, with a period of many hours.
 export function createNoise(seed=7319) {
   const values=new Float32Array(256*256);
   let state=seed>>>0;

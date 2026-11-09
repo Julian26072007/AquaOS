@@ -11,19 +11,18 @@ that match the task; the fuller file inventory is in README.md.
 | --- | --- | --- |
 | Layout/accessibility/settings UI | `index.html`, `styles.css`, `js/app.js` | browser; schedule/natural UI when affected |
 | Aquarium artwork/animation | `js/renderer.js`, `js/scenery.js`, `js/timing.js` | browser + lighting |
-| 2D lighting/materials | `js/effects.js`, `js/light-field.js`, `js/clouds.js`, `js/caustics.js`, `js/noise.js` | lighting + field |
+| Global lighting/materials | `js/lighting.js`, `js/environment.js`, `js/effects.js` | unit + lighting |
 | Preset definitions | `js/presets.js` | browser + lighting |
 | Schedule/preview | `js/schedule.js`, `js/controllers.js` | unit + schedule |
 | Natural weather/astronomy/safety | `js/natural.js`, `js/weather.js`, `js/astronomy.js`, `js/safety.js` | unit + natural |
 | Persistence | `js/state.js` | unit + browser + affected mode UI |
-| Future output mapping | `js/hardware*.js`, `js/device-plan.js` | unit + field |
+| Future output mapping | `js/hardware*.js`, `js/device-plan.js` | unit |
 | Test tooling | `package.json`, `scripts/test-browser.mjs`, `tests/` | unit + affected browser suites |
 
-`app.js` wires the UI; controllers own independent real/preview clocks. Domain
-modules stay usable without the DOM. `effects.js` contains both the pure lighting
-engine and Canvas lighting pass. `dev/light-map.html` is a developer tool.
-Detailed behavior: `docs/automatic-cycle.md`, `docs/natural-mode.md`,
-`docs/2d-lighting.md`. Do not edit vendored SunCalc without a specific reason.
+`app.js` wires the UI. Controllers own independent real and preview clocks.
+Domain modules stay usable without the DOM. The renderer consumes the shared
+five-channel output. See README.md, docs/automatic-cycle.md and
+docs/natural-mode.md. Do not edit vendored SunCalc without a specific reason.
 
 ## Conventions and preservation rules
 
@@ -31,11 +30,12 @@ Detailed behavior: `docs/automatic-cycle.md`, `docs/natural-mode.md`,
   Prefer small pure functions and injected clocks/storage/fetch for domain logic.
 - Preserve the existing UI, colors, artwork, nine presets, responsive layout,
   touch targets, keyboard access, dialog focus and reduced-motion behavior.
-- Keep x=left/right, y=rear/front and z=water depth distinct in lighting code.
+- Keep every lighting effect global across Red, Green, Blue, Warm White and Cool White.
 - Preserve manual mode, automatic scheduling, Natural Mode, weather fallback,
   astronomy, persistence migration and blocked/corrupt storage behavior.
 - Preview owns its controller and renderer. It must never persist settings or
-  feed real output. Accelerated schedule time must not accelerate cloud motion.
+  feed real output. Evaluate weather from simulation time, with an independent
+  decorative scene clock.
   Future hardware gates must continue rejecting preview sources; no device
   communication exists today. Preserve safety limits and darkness budgets.
 - Keep assets relative for case-sensitive GitHub Pages `/AquaOS/` hosting.
@@ -50,7 +50,7 @@ Detailed behavior: `docs/automatic-cycle.md`, `docs/natural-mode.md`,
 3. Run focused checks while developing:
    - `npm run test:unit` (Node 22+, no install/server/browser required).
    - `node --test tests/unit/schedule.test.cjs` or `natural.test.cjs` for one domain.
-   - `npm run test:browser -- schedule` (or `browser`, `lighting`, `field`, `natural`;
+   - `npm run test:browser -- schedule` (or `browser`, `lighting`, `natural`, `live-weather`;
      multiple names supported). Installs: `npm ci`, then
      `npx playwright install chromium` if system Chromium is unavailable.
 4. Run `npm test` for significant/shared changes. It runs unit checks once and
